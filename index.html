@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1A3A6E">
+<title>PORTOEX | Controle de Estoque</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#1A3A6E; --navy-2:#122B54; --navy-3:#E6ECF5;
+  --orange:#E8611A; --orange-2:#C94F0F; --orange-3:#FDEEE4;
+  --bg:#EEF1F6; --card:#FFFFFF; --ink:#17233A; --muted:#5E6B82; --line:#D8DEE8;
+  --ok:#1E8A5A; --ok-3:#E3F4EC; --bad:#C0392B; --bad-3:#FBE7E5;
+  --disp:'Barlow Condensed','Arial Narrow',sans-serif;
+  --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{font-family:var(--body);background:var(--bg);color:var(--ink);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+.hidden{display:none!important}
+
+/* ── Topo ── */
+.topo{position:sticky;top:0;z-index:20;background:var(--navy);color:#fff;padding-top:env(safe-area-inset-top,0px)}
+.topo-in{max-width:1280px;margin:0 auto;display:flex;align-items:center;gap:14px;padding:10px 18px}
+.marca{display:flex;align-items:baseline;gap:10px;min-width:0}
+.marca b{font-family:var(--disp);font-weight:800;font-size:26px;letter-spacing:.5px;line-height:1}
+.marca b i{font-style:normal;color:var(--orange)}
+.marca span{font-family:var(--disp);font-weight:500;font-size:19px;color:#C9D4E6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topo .esp{flex:1}
+.btn-topo{background:transparent;border:1px solid rgba(255,255,255,.28);color:#fff;border-radius:8px;padding:7px 12px;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;font-size:14px}
+.btn-topo:hover{background:rgba(255,255,255,.1)}
+.sync{font-size:12px;color:#AFC0DA;white-space:nowrap}
+.menu{position:relative}
+.menu-lista{position:absolute;right:0;top:calc(100% + 6px);background:#fff;color:var(--ink);border-radius:10px;box-shadow:0 12px 32px rgba(18,43,84,.25);min-width:200px;padding:6px;z-index:30}
+.menu-lista button{display:block;width:100%;text-align:left;background:none;border:0;padding:10px 12px;border-radius:7px;cursor:pointer}
+.menu-lista button:hover{background:var(--navy-3)}
+.menu-lista .quem{padding:8px 12px 10px;border-bottom:1px solid var(--line);margin-bottom:4px;font-size:13px;color:var(--muted)}
+.menu-lista .quem strong{display:block;color:var(--ink);font-size:14px}
+
+.abas{background:var(--navy-2)}
+.abas-in{max-width:1280px;margin:0 auto;display:flex;gap:2px;padding:0 12px;overflow-x:auto;scrollbar-width:none}
+.abas button{background:none;border:0;color:#B8C6DC;padding:12px 16px 11px;font-family:var(--disp);font-weight:600;font-size:18px;letter-spacing:.3px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+.abas button[aria-selected="true"]{color:#fff;border-bottom-color:var(--orange)}
+.abas button:hover{color:#fff}
+
+main{max-width:1280px;margin:0 auto;padding:22px 18px calc(40px + env(safe-area-inset-bottom,0px))}
+h2{font-family:var(--disp);font-weight:700;font-size:24px;margin:0 0 12px;color:var(--navy)}
+h2 small{font-family:var(--body);font-weight:500;font-size:14px;color:var(--muted);margin-left:8px}
+.secao{margin-top:28px}
+
+/* ── Botões ── */
+.btn{border:0;border-radius:9px;padding:11px 18px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:background .15s}
+.btn:disabled{opacity:.55;cursor:progress}
+.btn-pri{background:var(--orange);color:#fff}.btn-pri:hover{background:var(--orange-2)}
+.btn-nav{background:var(--navy);color:#fff}.btn-nav:hover{background:var(--navy-2)}
+.btn-sec{background:#fff;color:var(--navy);border:1px solid var(--line)}.btn-sec:hover{border-color:var(--navy)}
+.btn-txt{background:none;color:var(--muted);padding:11px 10px}.btn-txt:hover{color:var(--bad)}
+.btn-del{background:var(--bad-3);color:var(--bad)}.btn-del:hover{background:#F6D3CF}
+.btn-g{padding:16px 22px;font-size:17px}
+
+/* ── Operação ── */
+.acoes{display:flex;gap:12px;flex-wrap:wrap}
+.cards-and{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
+.and{background:var(--card);border-radius:12px;border-left:6px solid var(--orange);padding:16px 18px 14px;box-shadow:0 1px 2px rgba(18,43,84,.08);display:flex;flex-direction:column;gap:6px}
+.and .cli{font-family:var(--disp);font-weight:700;font-size:24px;line-height:1.05;color:var(--navy)}
+.and .mov{font-size:13px;font-weight:600;color:var(--orange-2)}
+.and .meta{font-size:13px;color:var(--muted)}
+.relogio{font-family:var(--disp);font-weight:700;font-size:54px;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:1px;color:var(--ink);margin:6px 0 2px}
+.relogio.longo{color:var(--bad)}
+.and .rod{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+.vazio{background:var(--card);border:2px dashed var(--line);border-radius:12px;padding:26px;text-align:center;color:var(--muted)}
+.lista-hoje{background:var(--card);border-radius:12px;overflow:hidden;box-shadow:0 1px 2px rgba(18,43,84,.08)}
+.lh{display:grid;grid-template-columns:120px 1fr 1fr 90px;gap:10px;padding:11px 16px;border-top:1px solid var(--line);align-items:center;cursor:pointer}
+.lh:first-child{border-top:0}
+.lh:hover{background:#F7F9FC}
+.lh .h{font-variant-numeric:tabular-nums;color:var(--muted);font-size:14px}
+.lh .c{font-weight:600}
+.lh .t{font-family:var(--disp);font-weight:600;font-size:19px;text-align:right;font-variant-numeric:tabular-nums}
+
+/* ── Filtros / tabela ── */
+.filtros{background:var(--card);border-radius:12px;padding:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;box-shadow:0 1px 2px rgba(18,43,84,.08)}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
+.in{width:100%;border:1px solid var(--line);border-radius:8px;padding:10px 11px;background:#fff;min-height:42px}
+.in:focus{border-color:var(--navy);outline:none;box-shadow:0 0 0 3px var(--navy-3)}
+.in:disabled{background:#F4F6FA;color:var(--ink)}
+.resumo{display:flex;flex-wrap:wrap;gap:8px 22px;margin:14px 2px 10px;font-size:14px;color:var(--muted)}
+.resumo b{font-family:var(--disp);font-size:20px;color:var(--ink);font-weight:700;margin-right:4px}
+.barra{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}
+.tab-wrap{background:var(--card);border-radius:12px;overflow-x:auto;box-shadow:0 1px 2px rgba(18,43,84,.08)}
+table.t{width:100%;border-collapse:collapse;font-size:14px}
+table.t th{position:sticky;top:0;background:var(--navy-3);color:var(--navy);text-align:left;font-weight:600;font-size:13px;padding:10px 10px;white-space:nowrap}
+table.t td{padding:10px;border-top:1px solid var(--line);white-space:nowrap}
+table.t td.n,table.t th.n{text-align:right;font-variant-numeric:tabular-nums}
+table.t tbody tr{cursor:pointer}
+table.t tbody tr:hover{background:#F7F9FC}
+.tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:12px;font-weight:600}
+.tag.ok{background:var(--ok-3);color:var(--ok)}.tag.bad{background:var(--bad-3);color:var(--bad)}
+.tag.off{background:#EEF0F4;color:var(--muted)}
+.nota{font-size:13px;color:var(--muted);margin:10px 2px}
+
+/* ── Painel ── */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:14px}
+.kpi{background:var(--card);border-radius:12px;padding:14px 16px;box-shadow:0 1px 2px rgba(18,43,84,.08)}
+.kpi .v{font-family:var(--disp);font-weight:700;font-size:36px;line-height:1.05;color:var(--navy);font-variant-numeric:tabular-nums}
+.kpi .l{font-size:13px;color:var(--muted)}
+.kpi.dest{background:var(--navy)}.kpi.dest .v{color:#fff}.kpi.dest .l{color:#B8C6DC}
+.grade2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.bloco{background:var(--card);border-radius:12px;padding:16px 18px;box-shadow:0 1px 2px rgba(18,43,84,.08);min-width:0}
+.bloco h3{font-family:var(--disp);font-weight:700;font-size:20px;margin:0 0 12px;color:var(--navy)}
+.bar{display:grid;grid-template-columns:minmax(90px,150px) 1fr auto;gap:10px;align-items:center;margin:7px 0;font-size:14px}
+.bar .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .tr{display:block;background:var(--navy-3);border-radius:4px;height:14px;overflow:hidden}
+.bar .fl{display:block;height:100%;background:var(--navy);border-radius:4px}
+.bar.lar .fl{background:var(--orange)}
+.bar .vl{font-variant-numeric:tabular-nums;font-weight:600;min-width:52px;text-align:right}
+
+/* ── Cadastros ── */
+.seg{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.seg button{border:1px solid var(--line);background:#fff;border-radius:20px;padding:7px 14px;cursor:pointer;font-weight:500}
+.seg button[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
+.add{display:flex;gap:10px;margin-bottom:12px}
+.add .in{flex:1}
+.cad{background:var(--card);border-radius:12px;box-shadow:0 1px 2px rgba(18,43,84,.08);overflow:hidden}
+.cad-l{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--line)}
+.cad-l:first-child{border-top:0}
+.cad-l .nm{flex:1;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.cad-l.inativo .nm{color:var(--muted);text-decoration:line-through}
+.mini{border:1px solid var(--line);background:#fff;border-radius:7px;padding:6px 10px;font-size:13px;cursor:pointer}
+.mini:hover{border-color:var(--navy)}
+
+/* ── Modal ── */
+.fundo{position:fixed;inset:0;background:rgba(18,43,84,.55);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:calc(20px + env(safe-area-inset-top,0px)) 12px 20px;overflow-y:auto}
+.modal{background:#fff;border-radius:14px;width:100%;max-width:620px;box-shadow:0 20px 60px rgba(0,0,0,.3);animation:sobe .18s ease-out}
+@keyframes sobe{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+.modal-cab{background:var(--navy);color:#fff;border-radius:14px 14px 0 0;padding:14px 18px;display:flex;align-items:center;gap:10px}
+.modal-cab h3{margin:0;font-family:var(--disp);font-weight:700;font-size:22px;flex:1}
+.modal-cab button{background:none;border:0;color:#fff;font-size:26px;line-height:1;cursor:pointer;padding:2px 6px}
+.modal-corpo{padding:18px}
+.modal-rod{padding:14px 18px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.modal-rod .esq{margin-right:auto}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form .full{grid-column:1/-1}
+.form label.f{color:var(--ink);font-weight:600}
+.form label.f em{font-style:normal;color:var(--orange)}
+.dica{font-weight:400;color:var(--muted);font-size:12px}
+.resumo-op{background:var(--orange-3);border-radius:10px;padding:12px 14px;margin-bottom:16px}
+.resumo-op .cli{font-family:var(--disp);font-weight:700;font-size:22px;color:var(--navy)}
+.resumo-op .meta{font-size:13px;color:var(--muted)}
+.sn{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.sn label{flex:1;text-align:center;padding:10px;cursor:pointer;font-weight:600;color:var(--muted)}
+.sn input{position:absolute;opacity:0;pointer-events:none}
+.sn label:has(input:checked){background:var(--navy);color:#fff}
+.sn label.sim:has(input:checked){background:var(--bad);color:#fff}
+.sn label:has(input:focus-visible){outline:3px solid var(--orange);outline-offset:-3px}
+.tempo{font-family:var(--disp);font-size:20px;font-weight:700;color:var(--navy);font-variant-numeric:tabular-nums}
+.erro{background:var(--bad-3);color:var(--bad);border-radius:8px;padding:10px 12px;font-size:14px;margin-top:12px}
+
+/* ── Login ── */
+.login{min-height:100vh;display:grid;place-items:center;padding:24px;background:var(--navy)}
+.login-box{background:#fff;border-radius:16px;width:100%;max-width:380px;padding:30px 26px;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+.login-box .marca b{font-size:40px;color:var(--navy)}
+.login-box .marca span{color:var(--muted);font-size:22px}
+.login-box form{display:grid;gap:14px;margin-top:22px}
+.chk{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--muted)}
+.link{background:none;border:0;color:var(--navy);text-decoration:underline;cursor:pointer;font-size:13px;padding:0}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;z-index:80;font-weight:500;box-shadow:0 10px 30px rgba(0,0,0,.3);max-width:calc(100% - 24px)}
+.toast.bad{background:var(--bad)}
+.carregando{display:grid;place-items:center;padding:60px;color:var(--muted)}
+
+@media (max-width:760px){
+  .grade2{grid-template-columns:1fr}
+  .form{gap:12px}
+  .form .wm{grid-column:1/-1}
+  .sync{display:none}
+  .marca span{font-size:16px}
+  .lh{grid-template-columns:1fr auto;gap:2px 10px}
+  .lh .h{grid-column:1}.lh .t{grid-row:1/3;grid-column:2}
+  .relogio{font-size:48px}
+  .btn-g{flex:1}
+  /* tabela vira cartões */
+  table.t thead{display:none}
+  table.t,table.t tbody,table.t tr,table.t td{display:block;width:100%}
+  table.t tr{border-top:1px solid var(--line);padding:10px 14px;display:grid;grid-template-columns:1fr 1fr;gap:2px 10px}
+  table.t td{border:0;padding:1px 0;white-space:normal;text-align:left!important;font-size:13px}
+  table.t td::before{content:attr(data-l) ": ";color:var(--muted)}
+  table.t td.cli{grid-column:1/-1;font-weight:700;font-size:15px;order:-1}
+  table.t td.cli::before{content:none}
+}
+@media (prefers-reduced-motion:reduce){.modal{animation:none}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   CONFIGURAÇÃO: cole aqui a URL do Web App do Apps Script (/exec)
+   (também dá para configurar pela tela de login, em "Conexão")
+   ═══════════════════════════════════════════════════════════ */
+const API_PADRAO = '';
+
+const LS = {
+  get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
+  set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+};
+const K_API='pe_estoque_api', K_LOGIN='pe_estoque_login';
+
+const hojeISO = () => { const d=new Date(); return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate()); };
+const agoraHora = () => { const d=new Date(); return p2(d.getHours())+':'+p2(d.getMinutes())+':'+p2(d.getSeconds()); };
+const p2 = n => String(n).padStart(2,'0');
+
+const S = {
+  api: LS.get(K_API) || API_PADRAO,
+  user:null, senha:null, d:null, tab:'operacao', cad:'clientes', usuarios:null, menu:false,
+  f:{ de: hojeISO().slice(0,8)+'01', ate: hojeISO(), cliente:'', mov:'', colab:'', q:'' },
+  p:{ mes: hojeISO().slice(0,7), cliente:'' }
+};
+
+/* ── utilidades ── */
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nf = n => (Number(n)||0).toLocaleString('pt-BR');
+const dataBR = iso => iso ? iso.split('-').reverse().join('/') : '';
+const seg = h => { const m=String(h||'').match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/); return m ? (+m[1])*3600+(+m[2])*60+(+(m[3]||0)) : null; };
+const dur = (hi,hf) => { const a=seg(hi), b=seg(hf); if(a==null||b==null) return null; let d=b-a; if(d<0) d+=86400; return d; };
+const fmtDur = s => { if(s==null||isNaN(s)) return '--:--:--'; s=Math.max(0,Math.round(s)); return p2(Math.floor(s/3600))+':'+p2(Math.floor(s%3600/60))+':'+p2(s%60); };
+const fmtDurCurto = s => { if(s==null||isNaN(s)) return '-'; s=Math.round(s); const h=Math.floor(s/3600), m=Math.round(s%3600/60); return h ? h+'h'+p2(m) : m+' min'; };
+const ehEntrada = m => /ENTRADA|RECEB/i.test(m||'');
+const ehSeparacao = m => /SEPARA/i.test(m||'');
+const isAdmin = () => S.user && S.user.perfil==='ADMIN';
+const ativos = tipo => (S.d?.listas?.[tipo]||[]).filter(x=>x.ativo).map(x=>x.nome);
+
+function toast(msg, ruim){
+  const t=document.createElement('div'); t.className='toast'+(ruim?' bad':''); t.textContent=msg; t.setAttribute('role','status');
+  document.body.appendChild(t); setTimeout(()=>t.remove(), ruim?5200:2800);
+}
+
+/* ── API ── */
+async function api(acao, extra={}, cred){
+  if(!S.api) throw new Error('Configure a conexão com a planilha (URL do Apps Script).');
+  const c = cred || { usuario:S.user&&S.user.usuario, senha:S.senha };
+  let r;
+  try{
+    r = await fetch(S.api, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(Object.assign({acao}, c, extra)) });
+  }catch(e){ throw new Error('Sem conexão com a planilha. Verifique a internet e a URL do Apps Script.'); }
+  let j; try{ j = await r.json(); }catch(e){ throw new Error('Resposta inválida do Apps Script. Confira se a implantação está como "Qualquer pessoa".'); }
+  if(!j.ok){
+    if(j.auth===false && S.user){ sair(); }
+    throw new Error(j.erro || 'Erro desconhecido.');
+  }
+  if(j.registros) S.d = { registros:j.registros, andamento:j.andamento||[], listas:j.listas||{}, ocupacao:j.ocupacao, at:new Date() };
+  return j;
+}
+
+async function atualizar(silencioso){
+  try{ await api('dados'); render(); if(!silencioso) toast('Dados atualizados.'); }
+  catch(e){ if(!silencioso) toast(e.message,true); }
+}
+
+/* ── Login ── */
+function telaLogin(msg){
+  const salvo = JSON.parse(LS.get(K_LOGIN)||'null');
+  $('#app').innerHTML = `
+  <div class="login"><div class="login-box">
+    <div class="marca"><b>PORTO<i>EX</i></b><span>Estoque</span></div>
+    <form id="fLogin" autocomplete="on">
+      <label class="f">Usuário<input class="in" name="usuario" autocomplete="username" required autocapitalize="characters" value="${esc(salvo?.usuario||'')}"></label>
+      <label class="f">Senha<input class="in" type="password" name="senha" autocomplete="current-password" required></label>
+      <label class="chk"><input type="checkbox" name="manter" ${salvo?'checked':''}> Manter conectado neste aparelho</label>
+      <button class="btn btn-pri btn-g" type="submit">Entrar</button>
+      ${msg?`<div class="erro">${esc(msg)}</div>`:''}
+      <div style="text-align:center"><button type="button" class="link" onclick="abrirConexao()">Conexão com a planilha${S.api?'':' (não configurada)'}</button></div>
+    </form>
+  </div></div>`;
+  $('#fLogin').onsubmit = async ev => {
+    ev.preventDefault();
+    const fd = new FormData(ev.target), b = ev.target.querySelector('button[type=submit]');
+    const usuario = String(fd.get('usuario')).trim().toUpperCase(), senha = String(fd.get('senha'));
+    b.disabled=true; b.textContent='Entrando…';
+    try{
+      await entrar(usuario, senha);
+      if(fd.get('manter')) LS.set(K_LOGIN, JSON.stringify({usuario,senha})); else LS.del(K_LOGIN);
+    }catch(e){ telaLogin(e.message); }
+  };
+}
+
+async function entrar(usuario, senha){
+  const j = await api('login', {}, {usuario, senha});
+  S.user = j.user; S.senha = senha;
+  $('#app').innerHTML = '<div class="carregando">Carregando dados da planilha…</div>';
+  await api('dados');
+  render();
+}
+
+function sair(){
+  LS.del(K_LOGIN); S.user=null; S.senha=null; S.d=null; S.usuarios=null; fecharModal(); telaLogin();
+}
+
+/* ── Casca ── */
+const ABAS = [['operacao','Operação'],['lancamentos','Lançamentos'],['painel','Painel'],['cadastros','Cadastros']];
+
+function render(){
+  if(!S.user || !S.d) return;
+  const abas = ABAS.filter(a => a[0]!=='cadastros' || isAdmin());
+  const hora = S.d.at ? p2(S.d.at.getHours())+':'+p2(S.d.at.getMinutes()) : '';
+  $('#app').innerHTML = `
+  <header class="topo">
+    <div class="topo-in">
+      <div class="marca"><b>PORTO<i>EX</i></b><span>Controle de Estoque</span></div>
+      <div class="esp"></div>
+      <span class="sync">Atualizado às ${hora}</span>
+      <button class="btn-topo" onclick="atualizar()" title="Buscar dados novos da planilha">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>Atualizar</button>
+      <div class="menu">
+        <button class="btn-topo" onclick="S.menu=!S.menu;render()" aria-expanded="${S.menu}">${esc(S.user.nome.split(' ')[0])} ▾</button>
+        ${S.menu?`<div class="menu-lista">
+          <div class="quem"><strong>${esc(S.user.nome)}</strong>${esc(S.user.usuario)} | ${S.user.perfil==='ADMIN'?'Administrador':'Operador'}</div>
+          <button onclick="S.menu=false;render();abrirSenha()">Trocar senha</button>
+          <button onclick="S.menu=false;render();abrirConexao()">Conexão com a planilha</button>
+          <button onclick="sair()">Sair</button>
+        </div>`:''}
+      </div>
+    </div>
+    <nav class="abas"><div class="abas-in" role="tablist">
+      ${abas.map(a=>`<button role="tab" aria-selected="${S.tab===a[0]}" onclick="irAba('${a[0]}')">${a[1]}${a[0]==='operacao'&&S.d.andamento.length?` (${S.d.andamento.length})`:''}</button>`).join('')}
+    </div></nav>
+  </header>
+  <main id="conteudo">${ ({operacao:vOperacao, lancamentos:vLancamentos, painel:vPainel, cadastros:vCadastros})[S.tab]() }</main>`;
+  posRender();
+  tick();
+}
+function irAba(t){ S.tab=t; S.menu=false; render(); window.scrollTo(0,0); if(t==='cadastros'&&S.cad==='usuarios') carregarUsuarios(); }
+
+/* ══════════ OPERAÇÃO ══════════ */
+function vOperacao(){
+  const and = S.d.andamento.slice().sort((a,b)=>(a.data+a.hi).localeCompare(b.data+b.hi));
+  const hoje = hojeISO();
+  const concl = S.d.registros.filter(r=>r.data===hoje).sort((a,b)=>b.hi.localeCompare(a.hi));
+  return `
+  <div class="acoes">
+    <button class="btn btn-pri btn-g" onclick="abrirForm('iniciar')">▶ Iniciar operação</button>
+    <button class="btn btn-sec btn-g" onclick="abrirForm('novo')">Lançar operação já concluída</button>
+  </div>
+
+  <section class="secao">
+    <h2>Em andamento<small>${and.length?and.length+' operação'+(and.length>1?'ões':''):''}</small></h2>
+    ${and.length ? `<div class="cards-and">${and.map(a=>`
+      <article class="and">
+        <div class="mov">${esc(a.mov)}</div>
+        <div class="cli">${esc(a.cliente)}</div>
+        <div class="meta">${esc(a.colab)}${a.nf?' | '+esc(a.nf):''}</div>
+        <div class="relogio" data-start="${esc(a.data)}T${esc(a.hi)}">--:--:--</div>
+        <div class="meta">Início ${dataBR(a.data)} às ${esc(a.hi.slice(0,5))}</div>
+        <div class="rod">
+          <button class="btn btn-txt" onclick="cancelarAnd('${esc(a.id)}')">Cancelar</button>
+          <button class="btn btn-nav" onclick="abrirForm('finalizar','${esc(a.id)}')">Finalizar</button>
+        </div>
+      </article>`).join('')}</div>`
+    : `<div class="vazio">Nenhuma operação em andamento. Toque em <b>Iniciar operação</b> quando começar um recebimento ou separação.</div>`}
+  </section>
+
+  <section class="secao">
+    <h2>Concluídas hoje<small>${concl.length}</small></h2>
+    ${concl.length ? `<div class="lista-hoje">${concl.map(r=>`
+      <div class="lh" onclick="abrirRegistro('${esc(r.id)}')">
+        <div class="h">${esc(r.hi.slice(0,5))} a ${esc(r.hf.slice(0,5))}</div>
+        <div class="c">${esc(r.cliente)}</div>
+        <div class="h">${esc(r.mov)} | ${esc(r.colab)}</div>
+        <div class="t">${fmtDurCurto(dur(r.hi,r.hf))}</div>
+      </div>`).join('')}</div>`
+    : `<div class="vazio">Nada lançado hoje ainda.</div>`}
+  </section>`;
+}
+
+async function cancelarAnd(id){
+  const a = S.d.andamento.find(x=>x.id===id);
+  if(!a || !confirm(`Cancelar a operação de ${a.cliente} (${a.mov})?\nEla será descartada sem gerar lançamento.`)) return;
+  try{ await api('cancelarAndamento',{id}); render(); toast('Operação cancelada.'); }catch(e){ toast(e.message,true); }
+}
+
+/* ══════════ LANÇAMENTOS ══════════ */
+function filtrados(){
+  const f=S.f, q=f.q.trim().toUpperCase();
+  return S.d.registros.filter(r =>
+    (!f.de || r.data>=f.de) && (!f.ate || r.data<=f.ate) &&
+    (!f.cliente || r.cliente===f.cliente) && (!f.mov || r.mov===f.mov) && (!f.colab || r.colab===f.colab) &&
+    (!q || (r.nf+' '+r.obs+' '+r.cliente).toUpperCase().includes(q))
+  ).sort((a,b)=> (b.data+b.hi).localeCompare(a.data+a.hi));
+}
+const unicos = campo => [...new Set(S.d.registros.map(r=>r[campo]).filter(Boolean))].sort();
+const optList = (lista, sel, vazio) => `<option value="">${vazio}</option>`+lista.map(v=>`<option ${v===sel?'selected':''}>${esc(v)}</option>`).join('');
+
+function vLancamentos(){
+  const L = filtrados(), f=S.f;
+  const soma = k => L.reduce((s,r)=>s+(r[k]||0),0);
+  const div = L.filter(r=>r.div==='SIM').length;
+  const LIM = 400;
+  return `
+  <div class="filtros">
+    <label class="f">De<input class="in" type="date" value="${f.de}" onchange="S.f.de=this.value;render()"></label>
+    <label class="f">Até<input class="in" type="date" value="${f.ate}" onchange="S.f.ate=this.value;render()"></label>
+    <label class="f">Cliente<select class="in" onchange="S.f.cliente=this.value;render()">${optList(unicos('cliente'),f.cliente,'Todos')}</select></label>
+    <label class="f">Movimento<select class="in" onchange="S.f.mov=this.value;render()">${optList(unicos('mov'),f.mov,'Todos')}</select></label>
+    <label class="f">Colaborador<select class="in" onchange="S.f.colab=this.value;render()">${optList(unicos('colab'),f.colab,'Todos')}</select></label>
+    <label class="f">Buscar<input class="in" id="busca" value="${esc(f.q)}" placeholder="Ex.: PED 0387"></label>
+  </div>
+  <div class="resumo">
+    <span><b>${nf(L.length)}</b>lançamentos</span>
+    <span><b>${nf(soma('vol'))}</b>volumes</span>
+    <span><b>${nf(soma('un'))}</b>unidades</span>
+    <span><b>${nf(soma('pal'))}</b>pallets (saldo)</span>
+    <span><b>${nf(div)}</b>com divergência</span>
+  </div>
+  <div class="barra" style="margin:0 0 12px">
+    <button class="btn-sec btn" onclick="limparFiltros()">Limpar filtros</button>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-sec" onclick="exportarCSV()">Exportar para Excel</button>
+      <button class="btn btn-pri" onclick="abrirForm('novo')">Novo lançamento</button>
+    </div>
+  </div>
+  ${L.length ? `<div class="tab-wrap"><table class="t">
+    <thead><tr><th>Data</th><th>Início</th><th>Fim</th><th class="n">Tempo</th><th>Cliente</th><th>Movimento</th><th>Colaborador</th><th>NF / DI / PED</th><th class="n">SKU</th><th class="n">Vol.</th><th class="n">Unid.</th><th class="n">Pallets</th><th>Diverg.</th></tr></thead>
+    <tbody>${L.slice(0,LIM).map(r=>`<tr onclick="abrirRegistro('${esc(r.id)}')">
+      <td data-l="Data">${dataBR(r.data)}</td><td data-l="Início">${esc(r.hi.slice(0,5))}</td><td data-l="Fim">${esc(r.hf.slice(0,5))}</td>
+      <td class="n" data-l="Tempo">${fmtDur(dur(r.hi,r.hf)).slice(0,5)}</td>
+      <td class="cli" data-l="Cliente">${esc(r.cliente)}</td><td data-l="Movimento">${esc(r.mov)}</td><td data-l="Colaborador">${esc(r.colab)}</td><td data-l="NF/DI/PED">${esc(r.nf)}</td>
+      <td class="n" data-l="SKU">${nf(r.sku)}</td><td class="n" data-l="Volumes">${nf(r.vol)}</td><td class="n" data-l="Unidades">${nf(r.un)}</td><td class="n" data-l="Pallets">${nf(r.pal)}</td>
+      <td data-l="Divergência"><span class="tag ${r.div==='SIM'?'bad':'ok'}">${r.div==='SIM'?'Sim':'Não'}</span></td>
+    </tr>`).join('')}</tbody></table></div>
+    ${L.length>LIM?`<p class="nota">Mostrando os ${LIM} mais recentes de ${nf(L.length)}. Use os filtros para refinar; a exportação inclui todos.</p>`:''}`
+  : `<div class="vazio">Nenhum lançamento para esses filtros.</div>`}`;
+}
+function limparFiltros(){ S.f={ de:'', ate:'', cliente:'', mov:'', colab:'', q:'' }; render(); }
+
+function exportarCSV(){
+  const L = filtrados();
+  const cab = ['DATA','HORA INICIAL','HORA FINAL','TEMPO','CLIENTE','MOVIMENTO','COLABORADOR','NF/ DI/ PED','QTD DE SKU','QTD DE VOLUMES','QTD DE UNIDADES','QTD DE PALLETS','DIVERGENCIA','OBSERVAÇÕES','LANÇADO POR'];
+  const q = v => { const s=String(v==null?'':v); return /[;"\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
+  const linhas = L.map(r=>[dataBR(r.data),r.hi,r.hf,fmtDur(dur(r.hi,r.hf)),r.cliente,r.mov,r.colab,r.nf,r.sku,r.vol,r.un,r.pal,r.div,r.obs,r.email].map(q).join(';'));
+  const blob = new Blob(['\ufeff'+[cab.join(';')].concat(linhas).join('\r\n')], {type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`movimentacao_estoque_${(S.f.de||'inicio')}_a_${(S.f.ate||'hoje')}.csv`; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+
+/* ══════════ PAINEL ══════════ */
+function vPainel(){
+  const p=S.p;
+  const R = S.d.registros.filter(r => r.data.slice(0,7)===p.mes && (!p.cliente || r.cliente===p.cliente));
+  const ent = R.filter(r=>ehEntrada(r.mov)), sep = R.filter(r=>ehSeparacao(r.mov));
+  const media = L => { const t=L.map(r=>dur(r.hi,r.hf)).filter(x=>x!=null); return t.length ? t.reduce((a,b)=>a+b,0)/t.length : null; };
+  const div = R.filter(r=>r.div==='SIM').length;
+  const efic = R.length ? (1-div/R.length)*100 : null;
+  const palE = R.reduce((s,r)=>s+(r.pal>0?r.pal:0),0), palS = R.reduce((s,r)=>s+(r.pal<0?-r.pal:0),0);
+
+  const agrupa = (campo) => {
+    const m={}; R.forEach(r=>{ const k=r[campo]||'(sem)'; m[k]=m[k]||{n:0,t:0}; m[k].n++; m[k].t+=dur(r.hi,r.hf)||0; });
+    return Object.entries(m).map(([k,v])=>({k,n:v.n,t:v.t})).sort((a,b)=>b.n-a.n);
+  };
+  const barras = (lista, val, txt, cls='') => { const max=Math.max(1,...lista.map(val)); return lista.map(x=>`
+    <div class="bar ${cls}"><span class="nm" title="${esc(x.k)}">${esc(x.k)}</span><span class="tr"><span class="fl" style="width:${(val(x)/max*100).toFixed(1)}%"></span></span><span class="vl">${txt(x)}</span></div>`).join(''); };
+
+  const porCli = agrupa('cliente'), porCol = agrupa('colab'), porMov = agrupa('mov');
+
+  // ocupação (aba OCUPAÇÃO X VALOR)
+  let ocu = '';
+  const O = S.d.ocupacao, mi = +p.mes.slice(5,7)-1;
+  if(O && O.linhas){
+    const L = O.linhas.map(l=>({k:l.cliente, v:l.valores[mi]})).filter(x=>x.v!=null && (!p.cliente||x.k===p.cliente)).sort((a,b)=>b.v-a.v);
+    const tot = L.reduce((s,x)=>s+x.v,0);
+    ocu = `<div class="bloco"><h3>Pallets em estoque no mês (${nf(tot)})</h3>${L.length?barras(L,x=>x.v,x=>nf(x.v),'lar'):'<p class="nota">Ocupação deste mês ainda não lançada na aba OCUPAÇÃO X VALOR.</p>'}</div>`;
+  }
+  const meses = [...new Set(S.d.registros.map(r=>r.data.slice(0,7)).filter(Boolean))].sort().reverse();
+  if(!meses.includes(p.mes)) meses.unshift(p.mes);
+  const nomeMes = m => { const [a,b]=m.split('-'); return ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][+b-1]+' '+a; };
+
+  return `
+  <div class="filtros" style="grid-template-columns:repeat(auto-fit,minmax(200px,260px))">
+    <label class="f">Mês<select class="in" onchange="S.p.mes=this.value;render()">${meses.map(m=>`<option value="${m}" ${m===p.mes?'selected':''}>${nomeMes(m)}</option>`).join('')}</select></label>
+    <label class="f">Cliente<select class="in" onchange="S.p.cliente=this.value;render()">${optList(unicos('cliente'),p.cliente,'Todos')}</select></label>
+  </div>
+  <div class="kpis">
+    <div class="kpi dest"><div class="v">${nf(R.length)}</div><div class="l">Operações no mês</div></div>
+    <div class="kpi"><div class="v">${fmtDur(media(ent))}</div><div class="l">Tempo médio de recebimento (${ent.length})</div></div>
+    <div class="kpi"><div class="v">${fmtDur(media(sep))}</div><div class="l">Tempo médio de separação (${sep.length})</div></div>
+    <div class="kpi"><div class="v">${efic==null?'-':efic.toFixed(1).replace('.',',')+'%'}</div><div class="l">Eficiência (${div} com divergência)</div></div>
+    <div class="kpi"><div class="v">${nf(R.reduce((s,r)=>s+r.vol,0))}</div><div class="l">Volumes movimentados</div></div>
+    <div class="kpi"><div class="v">${nf(R.reduce((s,r)=>s+r.un,0))}</div><div class="l">Unidades movimentadas</div></div>
+    <div class="kpi"><div class="v">${nf(palE)} / ${nf(palS)}</div><div class="l">Pallets entrada / saída</div></div>
+  </div>
+  ${R.length?`
+  <div class="grade2">
+    <div class="bloco"><h3>Operações por cliente</h3>${barras(porCli,x=>x.n,x=>nf(x.n))}</div>
+    <div class="bloco"><h3>Operações por colaborador</h3>${barras(porCol,x=>x.n,x=>nf(x.n)+' | '+fmtDurCurto(x.t))}</div>
+    <div class="bloco"><h3>Por tipo de movimento</h3>
+      <div class="tab-wrap" style="box-shadow:none"><table class="t"><thead><tr><th>Movimento</th><th class="n">Total</th><th class="n">Tempo total</th><th class="n">Média</th></tr></thead>
+      <tbody>${porMov.map(x=>`<tr style="cursor:default"><td class="cli" data-l="Movimento">${esc(x.k)}</td><td class="n" data-l="Total">${nf(x.n)}</td><td class="n" data-l="Tempo total">${fmtDur(x.t)}</td><td class="n" data-l="Média">${fmtDur(x.t/x.n)}</td></tr>`).join('')}</tbody></table></div>
+    </div>
+    ${ocu}
+  </div>` : `<div class="vazio" style="margin-top:14px">Sem lançamentos neste mês.</div>${ocu?'<div class="grade2">'+ocu+'</div>':''}`}`;
+}
+
+/* ══════════ CADASTROS ══════════ */
+const CAD_NOMES = {clientes:'Clientes', colaboradores:'Colaboradores', movimentos:'Movimentos', observacoes:'Observações', usuarios:'Usuários'};
+function vCadastros(){
+  if(!isAdmin()) return '<div class="vazio">Acesso restrito a administradores.</div>';
+  const seg = `<div class="seg">${Object.entries(CAD_NOMES).map(([k,v])=>`<button aria-pressed="${S.cad===k}" onclick="S.cad='${k}';render();${k==='usuarios'?'carregarUsuarios()':''}">${v}</button>`).join('')}</div>`;
+  if(S.cad==='usuarios') return seg + vUsuarios();
+  const lista = (S.d.listas[S.cad]||[]).slice().sort((a,b)=> (b.ativo-a.ativo) || a.nome.localeCompare(b.nome));
+  return seg + `
+  <form class="add" onsubmit="event.preventDefault();cadAdd(this)">
+    <input class="in" name="nome" placeholder="Novo item em ${CAD_NOMES[S.cad].toLowerCase()}" required ${S.cad!=='observacoes'?'style="text-transform:uppercase"':''}>
+    <button class="btn btn-pri" type="submit">Adicionar</button>
+  </form>
+  <p class="nota">Itens inativos deixam de aparecer nos formulários, mas continuam nos lançamentos antigos.</p>
+  <div class="cad">${lista.length?lista.map(x=>`
+    <div class="cad-l ${x.ativo?'':'inativo'}">
+      <span class="nm">${esc(x.nome)}</span>
+      <span class="tag ${x.ativo?'ok':'off'}">${x.ativo?'Ativo':'Inativo'}</span>
+      <button class="mini" data-n="${esc(x.nome)}" onclick="cadRenomear(this.dataset.n)">Renomear</button>
+      <button class="mini" data-n="${esc(x.nome)}" onclick="cadAlternar(this.dataset.n,${!x.ativo})">${x.ativo?'Desativar':'Ativar'}</button>
+    </div>`).join(''):'<div class="cad-l"><span class="nm">Nenhum item cadastrado.</span></div>'}</div>`;
+}
+async function cadSalvar(item, msg){
+  try{ await api('cadSalvar',{tipo:S.cad,item}); render(); toast(msg); }catch(e){ toast(e.message,true); }
+}
+function cadAdd(form){
+  const nome = form.nome.value.trim(); if(!nome) return;
+  const b=form.querySelector('button'); b.disabled=true; b.textContent='Salvando…';
+  cadSalvar({nome, ativo:true}, `"${S.cad==='observacoes'?nome:nome.toUpperCase()}" adicionado.`);
+}
+function cadRenomear(antigo){
+  const novo = prompt('Novo nome para "'+antigo+'":', antigo); if(!novo || novo.trim()===antigo) return;
+  const item = (S.d.listas[S.cad]||[]).find(x=>x.nome===antigo);
+  if(!confirm('Renomear altera só o cadastro. Os lançamentos antigos continuam com "'+antigo+'". Continuar?')) return;
+  cadSalvar({nome:novo.trim(), nomeAntigo:antigo, ativo:item?item.ativo:true}, 'Nome atualizado.');
+}
+function cadAlternar(nome, ativo){ cadSalvar({nome, nomeAntigo:nome, ativo}, ativo?'Item ativado.':'Item desativado.'); }
+
+async function carregarUsuarios(){
+  try{ const j = await api('usuarios'); S.usuarios=j.usuarios; if(S.tab==='cadastros'&&S.cad==='usuarios') render(); }
+  catch(e){ toast(e.message,true); }
+}
+function vUsuarios(){
+  if(!S.usuarios) return '<div class="carregando">Carregando usuários…</div>';
+  return `
+  <div class="barra" style="margin:0 0 12px"><span class="nota" style="margin:0">Operadores lançam e finalizam operações. Administradores também editam, excluem e mantêm os cadastros.</span>
+  <button class="btn btn-pri" onclick="abrirUsuario()">Novo usuário</button></div>
+  <div class="cad">${S.usuarios.map(u=>`
+    <div class="cad-l ${u.ativo?'':'inativo'}">
+      <span class="nm"><b>${esc(u.usuario)}</b> <span class="dica">${esc(u.nome)}</span></span>
+      <span class="tag ${u.perfil==='ADMIN'?'bad':'off'}">${u.perfil==='ADMIN'?'Administrador':'Operador'}</span>
+      <span class="tag ${u.ativo?'ok':'off'}">${u.ativo?'Ativo':'Inativo'}</span>
+      <button class="mini" onclick="abrirUsuario('${esc(u.usuario)}')">Editar</button>
+    </div>`).join('')}</div>`;
+}
+function abrirUsuario(login){
+  const u = login ? S.usuarios.find(x=>x.usuario===login) : {usuario:'',nome:'',perfil:'OPERADOR',ativo:true};
+  abrirModal(login?'Editar usuário':'Novo usuário', `
+    <form id="fUsu" class="form">
+      <label class="f"><span>Usuário (login)<em>*</em></span><input class="in" name="usuario" value="${esc(u.usuario)}" ${login?'disabled':''} required style="text-transform:uppercase"></label>
+      <label class="f">Nome<input class="in" name="nome" value="${esc(u.nome)}"></label>
+      <label class="f"><span>Senha ${login?'<span class="dica">(em branco mantém a atual)</span>':'<em>*</em>'}</span><input class="in" name="senha" type="text" autocomplete="off" ${login?'':'required'}></label>
+      <label class="f">Perfil<select class="in" name="perfil"><option value="OPERADOR" ${u.perfil!=='ADMIN'?'selected':''}>Operador</option><option value="ADMIN" ${u.perfil==='ADMIN'?'selected':''}>Administrador</option></select></label>
+      <label class="chk full"><input type="checkbox" name="ativo" ${u.ativo?'checked':''}> Usuário ativo (pode entrar no app)</label>
+    </form><div id="fErro"></div>`,
+    `<button class="btn btn-sec" onclick="fecharModal()">Cancelar</button><button class="btn btn-pri" id="bOk">Salvar usuário</button>`);
+  $('#bOk').onclick = async () => {
+    const f=$('#fUsu'); if(!f.reportValidity()) return;
+    const item={usuario:login||f.usuario.value, nome:f.nome.value.trim(), senha:f.senha.value, perfil:f.perfil.value, ativo:f.ativo.checked};
+    await enviar($('#bOk'), async()=>{ await api('usuSalvar',{item}); await carregarUsuarios(); }, 'Usuário salvo.');
+  };
+}
+
+/* ══════════ FORMULÁRIO DE OPERAÇÃO ══════════ */
+const OBS_AUTO = { entrada:'Material recebido sem divergência.', separacao:'Pedido separado sem divergência.' };
+const obsPadrao = mov => ehEntrada(mov) ? OBS_AUTO.entrada : ehSeparacao(mov) ? OBS_AUTO.separacao : '';
+
+function selectCad(name, tipo, valor, dis){
+  const lista = ativos(tipo);
+  if(valor && !lista.includes(valor)) lista.unshift(valor);
+  return `<select class="in" name="${name}" required ${dis?'disabled':''}><option value="">Selecione</option>${lista.map(v=>`<option ${v===valor?'selected':''}>${esc(v)}</option>`).join('')}</select>`;
+}
+function camposInicio(r, dis){
+  return `
+    <label class="f"><span>Data<em>*</em></span><input class="in" type="date" name="data" value="${esc(r.data)}" required ${dis?'disabled':''}></label>
+    <label class="f"><span>Hora inicial<em>*</em></span><input class="in" type="time" step="1" name="hi" value="${esc(r.hi)}" required ${dis?'disabled':''}></label>
+    <label class="f wm"><span>Cliente<em>*</em></span>${selectCad('cliente','clientes',r.cliente,dis)}</label>
+    <label class="f wm"><span>Movimento<em>*</em></span>${selectCad('mov','movimentos',r.mov,dis)}</label>
+    <label class="f wm"><span>Colaborador<em>*</em></span>${selectCad('colab','colaboradores',r.colab,dis)}</label>
+    <label class="f wm">NF / DI / PED<input class="in" name="nf" value="${esc(r.nf)}" placeholder="Ex.: NF 12228 ou PED 0387" ${dis?'disabled':''}></label>`;
+}
+function camposFim(r, dis){
+  const num = (n,l,v,extra='') => `<label class="f"><span>${l}<em>*</em></span><input class="in" type="number" inputmode="numeric" step="1" name="${n}" value="${v==null?0:v}" required ${extra} ${dis?'disabled':''}></label>`;
+  return `
+    ${num('sku','Qtd. de SKU',r.sku,'min="0"')}
+    ${num('vol','Qtd. de volumes',r.vol,'min="0"')}
+    ${num('un','Qtd. de unidades',r.un,'min="0"')}
+    <label class="f"><span>Qtd. de pallets<em>*</em></span><input class="in" type="number" inputmode="numeric" step="1" name="pal" value="${r.pal==null?0:r.pal}" required ${dis?'disabled':''}><span class="dica">Negativo = saída</span></label>
+    <label class="f"><span>Hora final<em>*</em></span><input class="in" type="time" step="1" name="hf" value="${esc(r.hf)}" required ${dis?'disabled':''}></label>
+    <div class="f" style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;justify-content:flex-end">Tempo realizado<span class="tempo" id="tempoForm">--:--:--</span></div>
+    <div class="f full" style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600">Divergência
+      <div class="sn" role="radiogroup" aria-label="Divergência">
+        <label><input type="radio" name="div" value="NÃO" ${r.div!=='SIM'?'checked':''} ${dis?'disabled':''}>Não</label>
+        <label class="sim"><input type="radio" name="div" value="SIM" ${r.div==='SIM'?'checked':''} ${dis?'disabled':''}>Sim</label>
+      </div></div>
+    <label class="f full">Observações <span class="dica" id="obsDica"></span>
+      <input class="in" name="obs" list="dlObs" value="${esc(r.obs)}" ${dis?'disabled':''}>
+      <datalist id="dlObs">${ativos('observacoes').map(o=>`<option value="${esc(o)}">`).join('')}</datalist></label>`;
+}
+
+function abrirForm(modo, id){
+  const agora=agoraHora(), hoje=hojeISO();
+  let r, titulo, corpo, rodape;
+  if(modo==='iniciar'){
+    r={data:hoje, hi:agora};
+    titulo='Iniciar operação';
+    corpo=`<form id="fOp" class="form">${camposInicio(r)}</form>`;
+    rodape=`<button class="btn btn-sec" onclick="fecharModal()">Voltar</button><button class="btn btn-pri" id="bOk">▶ Iniciar agora</button>`;
+  } else if(modo==='finalizar'){
+    const a=S.d.andamento.find(x=>x.id===id); if(!a){ toast('Operação não encontrada. Atualize os dados.',true); return; }
+    r=Object.assign({}, a, {hf:agora, sku:0, vol:0, un:0, pal:0, div:'NÃO', obs:obsPadrao(a.mov)});
+    titulo='Finalizar operação';
+    corpo=`<div class="resumo-op"><div class="cli">${esc(a.cliente)}</div><div class="meta">${esc(a.mov)} | ${esc(a.colab)}${a.nf?' | '+esc(a.nf):''}<br>Início ${dataBR(a.data)} às ${esc(a.hi)}</div></div>
+      <form id="fOp" class="form"><input type="hidden" name="hi" value="${esc(a.hi)}"><input type="hidden" name="mov" value="${esc(a.mov)}">${camposFim(r)}</form>`;
+    rodape=`<button class="btn btn-sec" onclick="fecharModal()">Voltar</button><button class="btn btn-nav" id="bOk">Finalizar e salvar</button>`;
+  } else if(modo==='novo'){
+    r={data:hoje, hi:'', hf:agora, sku:0, vol:0, un:0, pal:0, div:'NÃO', obs:''};
+    titulo='Lançar operação concluída';
+    corpo=`<form id="fOp" class="form">${camposInicio(r)}${camposFim(r)}</form>`;
+    rodape=`<button class="btn btn-sec" onclick="fecharModal()">Cancelar</button><button class="btn btn-pri" id="bOk">Salvar lançamento</button>`;
+  } else { // editar ou ver
+    r=S.d.registros.find(x=>x.id===id); if(!r){ toast('Registro não encontrado. Atualize os dados.',true); return; }
+    const dis = modo==='ver';
+    titulo = dis ? 'Lançamento' : 'Editar lançamento';
+    corpo=`<form id="fOp" class="form">${camposInicio(r,dis)}${camposFim(r,dis)}</form>
+      <p class="nota">Lançado em ${esc(r.ts)}${r.email?' por '+esc(r.email):''}.</p>`;
+    rodape = dis ? `<button class="btn btn-sec" onclick="fecharModal()">Fechar</button>`
+      : `<button class="btn btn-del esq" id="bDel">Excluir</button><button class="btn btn-sec" onclick="fecharModal()">Cancelar</button><button class="btn btn-pri" id="bOk">Salvar alterações</button>`;
+  }
+  abrirModal(titulo, corpo+'<div id="fErro"></div>', rodape);
+  const f=$('#fOp');
+  const atualizaTempo = () => { const t=$('#tempoForm'); if(t && f.hi && f.hf) t.textContent=fmtDur(dur(f.hi.value,f.hf.value)); };
+  const atualizaObs = () => {
+    if(!f.obs) return;
+    const d = f.querySelector('input[name=div]:checked')?.value;
+    const mov = f.mov ? f.mov.value : '';
+    const auto = Object.values(OBS_AUTO).includes(f.obs.value.trim());
+    if(d==='NÃO' && (!f.obs.value.trim() || auto)) f.obs.value = obsPadrao(mov);
+    if(d==='SIM' && auto) f.obs.value='';
+    $('#obsDica').textContent = d==='SIM' ? '(obrigatório: descreva a divergência)' : '';
+  };
+  f.addEventListener('input', e => { if(e.target.name==='hi'||e.target.name==='hf') atualizaTempo(); });
+  f.addEventListener('change', e => { if(e.target.name==='div'||e.target.name==='mov') atualizaObs(); });
+  atualizaTempo(); if(modo!=='ver') atualizaObs();
+  const bOk=$('#bOk'); if(bOk) bOk.onclick = () => salvarForm(modo, id);
+  const bDel=$('#bDel'); if(bDel) bDel.onclick = () => excluirReg(id);
+  const primeiro=f.querySelector('select:not([disabled]),input:not([type=hidden]):not([disabled])'); if(primeiro && modo!=='finalizar') primeiro.focus();
+}
+function abrirRegistro(id){ abrirForm(isAdmin()?'editar':'ver', id); }
+
+function lerForm(){
+  const f=$('#fOp'), o={};
+  f.querySelectorAll('input,select').forEach(el=>{
+    if(!el.name) return;
+    if(el.type==='radio'){ if(el.checked) o[el.name]=el.value; }
+    else o[el.name]=el.value;
+  });
+  ['sku','vol','un','pal'].forEach(k=>{ if(k in o) o[k]=Number(o[k]||0); });
+  if(o.hi && o.hi.length===5) o.hi+=':00';
+  if(o.hf && o.hf.length===5) o.hf+=':00';
+  return o;
+}
+function erroForm(msg){ $('#fErro').innerHTML = `<div class="erro">${esc(msg)}</div>`; }
+
+async function salvarForm(modo, id){
+  const f=$('#fOp');
+  if(!f.reportValidity()) return;
+  const reg=lerForm();
+  if(modo!=='iniciar'){
+    if(reg.div==='SIM' && (!reg.obs || /sem diverg/i.test(reg.obs))) return erroForm('Descreva a divergência em Observações.');
+    const d = dur(reg.hi, reg.hf);
+    if(d!=null && d>12*3600 && !confirm('O tempo realizado passou de 12 horas ('+fmtDur(d)+'). Confirma os horários?')) return;
+  }
+  const b=$('#bOk');
+  if(modo==='iniciar')   return enviar(b, ()=>api('iniciar',{reg}), 'Operação iniciada.');
+  if(modo==='finalizar'){ const {sku,vol,un,pal,hf,div,obs}=reg; return enviar(b, ()=>api('finalizar',{id,reg:{sku,vol,un,pal,hf,div,obs}}), 'Operação finalizada e salva.'); }
+  if(modo==='novo')      return enviar(b, ()=>api('salvar',{reg}), 'Lançamento salvo.');
+  if(modo==='editar')    return enviar(b, ()=>api('editar',{id,reg}), 'Alterações salvas.');
+}
+async function excluirReg(id){
+  const r=S.d.registros.find(x=>x.id===id);
+  if(!confirm(`Excluir o lançamento de ${r.cliente} em ${dataBR(r.data)} (${r.mov})?\nA linha será removida da planilha.`)) return;
+  enviar($('#bDel'), ()=>api('excluir',{id}), 'Lançamento excluído.');
+}
+async function enviar(botao, fn, ok){
+  const txt=botao.textContent; botao.disabled=true; botao.textContent='Salvando…';
+  try{ await fn(); fecharModal(); render(); toast(ok); }
+  catch(e){ botao.disabled=false; botao.textContent=txt; if($('#fErro')) erroForm(e.message); else toast(e.message,true); }
+}
+
+/* ── Senha / conexão ── */
+function abrirSenha(){
+  abrirModal('Trocar senha', `<form id="fS" class="form"><label class="f full">Nova senha<input class="in" type="password" name="nova" minlength="4" required autocomplete="new-password"></label>
+    <label class="f full">Repita a nova senha<input class="in" type="password" name="rep" required autocomplete="new-password"></label></form><div id="fErro"></div>`,
+    `<button class="btn btn-sec" onclick="fecharModal()">Cancelar</button><button class="btn btn-pri" id="bOk">Salvar senha</button>`);
+  $('#bOk').onclick = () => {
+    const f=$('#fS'); if(!f.reportValidity()) return;
+    if(f.nova.value!==f.rep.value) return erroForm('As senhas não conferem.');
+    const nova=f.nova.value;
+    enviar($('#bOk'), async()=>{ await api('trocarSenha',{nova}); S.senha=nova; if(LS.get(K_LOGIN)) LS.set(K_LOGIN, JSON.stringify({usuario:S.user.usuario,senha:nova})); }, 'Senha alterada.');
+  };
+}
+function abrirConexao(){
+  abrirModal('Conexão com a planilha', `<form id="fC" class="form"><label class="f full">URL do Apps Script (termina em /exec)
+    <input class="in" name="url" value="${esc(S.api)}" placeholder="https://script.google.com/macros/s/…/exec" required></label></form>
+    <p class="nota">A URL aparece no Apps Script em Implantar, Gerenciar implantações. Ela fica salva neste aparelho.</p><div id="fErro"></div>`,
+    `<button class="btn btn-sec" onclick="fecharModal()">Cancelar</button><button class="btn btn-pri" id="bOk">Testar e salvar</button>`);
+  $('#bOk').onclick = async () => {
+    const url=$('#fC').url.value.trim(); const b=$('#bOk'); b.disabled=true; b.textContent='Testando…';
+    try{
+      const r=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({acao:'ping'})});
+      const j=await r.json(); if(!j.ok) throw new Error();
+      S.api=url; LS.set(K_API,url); fecharModal(); toast('Conexão funcionando.');
+      if(!S.user) telaLogin();
+    }catch(e){ b.disabled=false; b.textContent='Testar e salvar'; erroForm('Não foi possível conectar. Confira a URL e se a implantação está liberada para "Qualquer pessoa".'); }
+  };
+}
+
+/* ── Modal ── */
+function abrirModal(titulo, corpo, rodape){
+  fecharModal();
+  const d=document.createElement('div'); d.className='fundo'; d.id='modal';
+  d.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-label="${esc(titulo)}">
+    <div class="modal-cab"><h3>${esc(titulo)}</h3><button onclick="fecharModal()" aria-label="Fechar">×</button></div>
+    <div class="modal-corpo">${corpo}</div><div class="modal-rod">${rodape}</div></div>`;
+  d.addEventListener('mousedown', e=>{ if(e.target===d) fecharModal(); });
+  document.body.appendChild(d); document.body.style.overflow='hidden';
+}
+function fecharModal(){ const m=$('#modal'); if(m) m.remove(); document.body.style.overflow=''; }
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ if($('#modal')) fecharModal(); else if(S.menu){S.menu=false;render();} } });
+document.addEventListener('click', e=>{ if(S.menu && !e.target.closest('.menu')){ S.menu=false; render(); } });
+
+/* ── Pós-render, cronômetros e atualização automática ── */
+function posRender(){
+  const b=$('#busca');
+  if(b){ let t; b.oninput=()=>{ clearTimeout(t); t=setTimeout(()=>{ S.f.q=b.value; const pos=b.selectionStart; render(); const nb=$('#busca'); nb.focus(); nb.setSelectionRange(pos,pos); },300); }; }
+}
+function tick(){
+  document.querySelectorAll('[data-start]').forEach(el=>{
+    const s=(Date.now()-new Date(el.dataset.start).getTime())/1000;
+    el.textContent=fmtDur(s); el.classList.toggle('longo', s>4*3600);
+  });
+}
+setInterval(tick, 1000);
+setInterval(()=>{ if(S.user && !$('#modal') && !document.hidden && !S.menu && document.activeElement?.id!=='busca') atualizar(true); }, 60000);
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && S.user && !$('#modal')) atualizar(true); });
+
+/* ── Início ── */
+(async function(){
+  const salvo = JSON.parse(LS.get(K_LOGIN)||'null');
+  if(salvo && S.api){
+    $('#app').innerHTML='<div class="carregando">Entrando…</div>';
+    try{ await entrar(salvo.usuario, salvo.senha); return; }catch(e){ LS.del(K_LOGIN); return telaLogin(e.message); }
+  }
+  telaLogin(S.api ? '' : 'Antes de entrar, configure a conexão com a planilha.');
+})();
+</script>
+</body>
+</html>
