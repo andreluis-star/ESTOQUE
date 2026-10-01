@@ -73,6 +73,15 @@ h2 small{font-family:var(--body);font-weight:500;font-size:14px;color:var(--mute
 .and .meta{font-size:13px;color:var(--muted)}
 .relogio{font-family:var(--disp);font-weight:700;font-size:54px;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:1px;color:var(--ink);margin:6px 0 2px}
 .relogio.longo{color:var(--bad)}
+.and.ret{border-left-color:var(--navy)}
+.and .rod .btn{white-space:nowrap}
+.and.ret .mov{color:var(--navy)}
+.relogio.md{font-size:40px}
+.tag.ag{background:var(--orange-3);color:var(--orange-2)}
+.ent-box{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.ent-box .tx{flex:1;min-width:200px;font-size:14px}
+.ent-box .tx b{display:block;font-family:var(--disp);font-size:18px;color:var(--navy)}
+textarea.in{resize:vertical;min-height:70px}
 .and .rod{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
 .vazio{background:var(--card);border:2px dashed var(--line);border-radius:12px;padding:26px;text-align:center;color:var(--muted)}
 .lista-hoje{background:var(--card);border-radius:12px;overflow:hidden;box-shadow:0 1px 2px rgba(18,43,84,.08)}
@@ -220,7 +229,7 @@ const p2 = n => String(n).padStart(2,'0');
 const S = {
   api: LS.get(K_API) || API_PADRAO,
   user:null, senha:null, d:null, tab:'operacao', cad:'clientes', usuarios:null, menu:false,
-  f:{ de: hojeISO().slice(0,8)+'01', ate: hojeISO(), cliente:'', mov:'', colab:'', q:'' },
+  f:{ de: hojeISO().slice(0,8)+'01', ate: hojeISO(), cliente:'', mov:'', colab:'', ent:'', q:'' },
   p:{ mes: hojeISO().slice(0,7), cliente:'' }
 };
 
@@ -235,6 +244,14 @@ const fmtDur = s => { if(s==null||isNaN(s)) return '--:--:--'; s=Math.max(0,Math
 const fmtDurCurto = s => { if(s==null||isNaN(s)) return '-'; s=Math.round(s); const h=Math.floor(s/3600), m=Math.round(s%3600/60); return h ? h+'h'+p2(m) : m+' min'; };
 const ehEntrada = m => /ENTRADA|RECEB/i.test(m||'');
 const ehSeparacao = m => /SEPARA/i.test(m||'');
+const ST_AG='AGUARDANDO RETIRADA', ST_EN='ENTREGUE';
+const aguardando = () => (S.d?.registros||[]).filter(r=>r.stEnt===ST_AG);
+const isoLocal = d => d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())+'T'+p2(d.getHours())+':'+p2(d.getMinutes())+':'+p2(d.getSeconds());
+/* fim da separação = data + hora final (se a hora final for menor que a inicial, virou o dia) */
+function fimSeparacao(r){ const d=new Date(r.data+'T'+(r.hf||'00:00:00')); if(seg(r.hf)!=null && seg(r.hf)<seg(r.hi)) d.setDate(d.getDate()+1); return d; }
+function tempoRetirada(r){ if(r.stEnt!==ST_EN || !r.entData) return null; return (new Date(r.entData+'T'+(r.entHora||'00:00:00')) - fimSeparacao(r))/1000; }
+const fmtEspera = s => { if(s==null||isNaN(s)) return '-'; s=Math.max(0,Math.round(s)); const d=Math.floor(s/86400); return (d? d+'d ':'')+p2(Math.floor(s%86400/3600))+':'+p2(Math.floor(s%3600/60))+(d?'':':'+p2(s%60)); };
+const tagEnt = r => r.stEnt===ST_AG ? '<span class="tag ag">Aguardando retirada</span>' : r.stEnt===ST_EN ? '<span class="tag ok">Entregue</span>' : '';
 const isAdmin = () => S.user && S.user.perfil==='ADMIN';
 const ativos = tipo => (S.d?.listas?.[tipo]||[]).filter(x=>x.ativo).map(x=>x.nome);
 
@@ -346,7 +363,7 @@ function render(){
       </div>
     </div>
     <nav class="abas"><div class="abas-in" role="tablist">
-      ${abas.map(a=>`<button role="tab" aria-selected="${S.tab===a[0]}" onclick="irAba('${a[0]}')">${a[1]}${a[0]==='operacao'&&S.d.andamento.length?` (${S.d.andamento.length})`:''}</button>`).join('')}
+      ${abas.map(a=>`<button role="tab" aria-selected="${S.tab===a[0]}" onclick="irAba('${a[0]}')">${a[1]}${a[0]==='operacao'&&(S.d.andamento.length+aguardando().length)?` (${S.d.andamento.length+aguardando().length})`:''}</button>`).join('')}
     </div></nav>
   </header>
   <main id="conteudo">${ ({operacao:vOperacao, lancamentos:vLancamentos, painel:vPainel, cadastros:vCadastros})[S.tab]() }</main>`;
@@ -360,6 +377,7 @@ function vOperacao(){
   const and = S.d.andamento.slice().sort((a,b)=>(a.data+a.hi).localeCompare(b.data+b.hi));
   const hoje = hojeISO();
   const concl = S.d.registros.filter(r=>r.data===hoje).sort((a,b)=>b.hi.localeCompare(a.hi));
+  const ret = aguardando().sort((a,b)=>fimSeparacao(a)-fimSeparacao(b));
   return `
   <div class="acoes">
     <button class="btn btn-pri btn-g" onclick="abrirForm('iniciar')">▶ Iniciar operação</button>
@@ -384,11 +402,28 @@ function vOperacao(){
   </section>
 
   <section class="secao">
+    <h2>Pedidos aguardando retirada<small>${ret.length?ret.length+' pedido'+(ret.length>1?'s':''):''}</small></h2>
+    ${ret.length ? `<div class="cards-and">${ret.map(r=>`
+      <article class="and ret">
+        <div class="mov">Separado | aguardando retirada</div>
+        <div class="cli">${esc(r.cliente)}</div>
+        <div class="meta">${esc(r.nf||'Sem nº de pedido')} | ${nf(r.vol)} vol.${r.pal?' | '+nf(Math.abs(r.pal))+' pallet'+(Math.abs(r.pal)>1?'s':''):''}</div>
+        <div class="relogio md" data-start="${isoLocal(fimSeparacao(r))}" data-fmt="espera" data-lim="86400">--:--:--</div>
+        <div class="meta">Separado por ${esc(r.colab)} em ${dataBR(r.data)} às ${esc(r.hf.slice(0,5))}</div>
+        <div class="rod">
+          <button class="btn btn-txt" style="color:var(--navy)" onclick="abrirRegistro('${esc(r.id)}')">Detalhes</button>
+          <button class="btn btn-pri" onclick="abrirEntrega('${esc(r.id)}')">Registrar entrega</button>
+        </div>
+      </article>`).join('')}</div>`
+    : `<div class="vazio">Nenhum pedido aguardando retirada. Toda separação de pedido nova entra aqui até a entrega ser registrada.</div>`}
+  </section>
+
+  <section class="secao">
     <h2>Concluídas hoje<small>${concl.length}</small></h2>
     ${concl.length ? `<div class="lista-hoje">${concl.map(r=>`
       <div class="lh" onclick="abrirRegistro('${esc(r.id)}')">
         <div class="h">${esc(r.hi.slice(0,5))} a ${esc(r.hf.slice(0,5))}</div>
-        <div class="c">${esc(r.cliente)}</div>
+        <div class="c">${esc(r.cliente)} ${tagEnt(r)}</div>
         <div class="h">${esc(r.mov)} | ${esc(r.colab)}</div>
         <div class="t">${fmtDurCurto(dur(r.hi,r.hf))}</div>
       </div>`).join('')}</div>`
@@ -408,7 +443,8 @@ function filtrados(){
   return S.d.registros.filter(r =>
     (!f.de || r.data>=f.de) && (!f.ate || r.data<=f.ate) &&
     (!f.cliente || r.cliente===f.cliente) && (!f.mov || r.mov===f.mov) && (!f.colab || r.colab===f.colab) &&
-    (!q || (r.nf+' '+r.obs+' '+r.cliente).toUpperCase().includes(q))
+    (!f.ent || r.stEnt===f.ent) &&
+    (!q || (r.nf+' '+r.obs+' '+r.cliente+' '+(r.entPor||'')+' '+(r.entObs||'')).toUpperCase().includes(q))
   ).sort((a,b)=> (b.data+b.hi).localeCompare(a.data+a.hi));
 }
 const unicos = campo => [...new Set(S.d.registros.map(r=>r[campo]).filter(Boolean))].sort();
@@ -426,6 +462,8 @@ function vLancamentos(){
     <label class="f">Cliente<select class="in" onchange="S.f.cliente=this.value;render()">${optList(unicos('cliente'),f.cliente,'Todos')}</select></label>
     <label class="f">Movimento<select class="in" onchange="S.f.mov=this.value;render()">${optList(unicos('mov'),f.mov,'Todos')}</select></label>
     <label class="f">Colaborador<select class="in" onchange="S.f.colab=this.value;render()">${optList(unicos('colab'),f.colab,'Todos')}</select></label>
+    <label class="f">Entrega<select class="in" onchange="S.f.ent=this.value;render()">
+      <option value="">Todos</option><option value="${ST_AG}" ${f.ent===ST_AG?'selected':''}>Aguardando retirada</option><option value="${ST_EN}" ${f.ent===ST_EN?'selected':''}>Entregue</option></select></label>
     <label class="f">Buscar<input class="in" id="busca" value="${esc(f.q)}" placeholder="Ex.: PED 0387"></label>
   </div>
   <div class="resumo">
@@ -443,24 +481,25 @@ function vLancamentos(){
     </div>
   </div>
   ${L.length ? `<div class="tab-wrap"><table class="t">
-    <thead><tr><th>Data</th><th>Início</th><th>Fim</th><th class="n">Tempo</th><th>Cliente</th><th>Movimento</th><th>Colaborador</th><th>NF / DI / PED</th><th class="n">SKU</th><th class="n">Vol.</th><th class="n">Unid.</th><th class="n">Pallets</th><th>Diverg.</th></tr></thead>
+    <thead><tr><th>Data</th><th>Início</th><th>Fim</th><th class="n">Tempo</th><th>Cliente</th><th>Movimento</th><th>Colaborador</th><th>NF / DI / PED</th><th class="n">SKU</th><th class="n">Vol.</th><th class="n">Unid.</th><th class="n">Pallets</th><th>Diverg.</th><th>Entrega</th></tr></thead>
     <tbody>${L.slice(0,LIM).map(r=>`<tr onclick="abrirRegistro('${esc(r.id)}')">
       <td data-l="Data">${dataBR(r.data)}</td><td data-l="Início">${esc(r.hi.slice(0,5))}</td><td data-l="Fim">${esc(r.hf.slice(0,5))}</td>
       <td class="n" data-l="Tempo">${fmtDur(dur(r.hi,r.hf)).slice(0,5)}</td>
       <td class="cli" data-l="Cliente">${esc(r.cliente)}</td><td data-l="Movimento">${esc(r.mov)}</td><td data-l="Colaborador">${esc(r.colab)}</td><td data-l="NF/DI/PED">${esc(r.nf)}</td>
       <td class="n" data-l="SKU">${nf(r.sku)}</td><td class="n" data-l="Volumes">${nf(r.vol)}</td><td class="n" data-l="Unidades">${nf(r.un)}</td><td class="n" data-l="Pallets">${nf(r.pal)}</td>
       <td data-l="Divergência"><span class="tag ${r.div==='SIM'?'bad':'ok'}">${r.div==='SIM'?'Sim':'Não'}</span></td>
+      <td data-l="Entrega">${r.stEnt===ST_EN?`<span class="tag ok">${dataBR(r.entData).slice(0,5)} ${esc((r.entHora||'').slice(0,5))}</span>`:r.stEnt===ST_AG?'<span class="tag ag">Aguardando</span>':'-'}</td>
     </tr>`).join('')}</tbody></table></div>
     ${L.length>LIM?`<p class="nota">Mostrando os ${LIM} mais recentes de ${nf(L.length)}. Use os filtros para refinar; a exportação inclui todos.</p>`:''}`
   : `<div class="vazio">Nenhum lançamento para esses filtros.</div>`}`;
 }
-function limparFiltros(){ S.f={ de:'', ate:'', cliente:'', mov:'', colab:'', q:'' }; render(); }
+function limparFiltros(){ S.f={ de:'', ate:'', cliente:'', mov:'', colab:'', ent:'', q:'' }; render(); }
 
 function exportarCSV(){
   const L = filtrados();
-  const cab = ['DATA','HORA INICIAL','HORA FINAL','TEMPO','CLIENTE','MOVIMENTO','COLABORADOR','NF/ DI/ PED','QTD DE SKU','QTD DE VOLUMES','QTD DE UNIDADES','QTD DE PALLETS','DIVERGENCIA','OBSERVAÇÕES','LANÇADO POR'];
+  const cab = ['DATA','HORA INICIAL','HORA FINAL','TEMPO','CLIENTE','MOVIMENTO','COLABORADOR','NF/ DI/ PED','QTD DE SKU','QTD DE VOLUMES','QTD DE UNIDADES','QTD DE PALLETS','DIVERGENCIA','OBSERVAÇÕES','LANÇADO POR','STATUS ENTREGA','ENTREGUE POR','DATA ENTREGA','HORA ENTREGA','OBS ENTREGA'];
   const q = v => { const s=String(v==null?'':v); return /[;"\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
-  const linhas = L.map(r=>[dataBR(r.data),r.hi,r.hf,fmtDur(dur(r.hi,r.hf)),r.cliente,r.mov,r.colab,r.nf,r.sku,r.vol,r.un,r.pal,r.div,r.obs,r.email].map(q).join(';'));
+  const linhas = L.map(r=>[dataBR(r.data),r.hi,r.hf,fmtDur(dur(r.hi,r.hf)),r.cliente,r.mov,r.colab,r.nf,r.sku,r.vol,r.un,r.pal,r.div,r.obs,r.email,r.stEnt,r.entPor,dataBR(r.entData),r.entHora,r.entObs].map(q).join(';'));
   const blob = new Blob(['\ufeff'+[cab.join(';')].concat(linhas).join('\r\n')], {type:'text/csv;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download=`movimentacao_estoque_${(S.f.de||'inicio')}_a_${(S.f.ate||'hoje')}.csv`; document.body.appendChild(a); a.click(); a.remove();
@@ -511,6 +550,8 @@ function vPainel(){
     <div class="kpi"><div class="v">${nf(R.reduce((s,r)=>s+r.vol,0))}</div><div class="l">Volumes movimentados</div></div>
     <div class="kpi"><div class="v">${nf(R.reduce((s,r)=>s+r.un,0))}</div><div class="l">Unidades movimentadas</div></div>
     <div class="kpi"><div class="v">${nf(palE)} / ${nf(palS)}</div><div class="l">Pallets entrada / saída</div></div>
+    <div class="kpi"><div class="v">${nf(aguardando().filter(r=>!p.cliente||r.cliente===p.cliente).length)}</div><div class="l">Aguardando retirada agora</div></div>
+    <div class="kpi"><div class="v">${(()=>{ const t=sep.map(tempoRetirada).filter(x=>x!=null&&x>=0); return t.length?fmtEspera(t.reduce((a,b)=>a+b,0)/t.length).replace(/:\d\d$/,''):'-'; })()}</div><div class="l">Tempo médio da separação à retirada</div></div>
   </div>
   ${R.length?`
   <div class="grade2">
@@ -658,7 +699,7 @@ function abrirForm(modo, id){
     const dis = modo==='ver';
     titulo = dis ? 'Lançamento' : 'Editar lançamento';
     corpo=`<form id="fOp" class="form">${camposInicio(r,dis)}${camposFim(r,dis)}</form>
-      <p class="nota">Lançado em ${esc(r.ts)}${r.email?' por '+esc(r.email):''}.</p>`;
+      ${r.ts?`<p class="nota">Lançado em ${esc(r.ts)}${r.email?' por '+esc(r.email):''}.</p>`:''}${blocoEntrega(r)}`;
     rodape = dis ? `<button class="btn btn-sec" onclick="fecharModal()">Fechar</button>`
       : `<button class="btn btn-del esq" id="bDel">Excluir</button><button class="btn btn-sec" onclick="fecharModal()">Cancelar</button><button class="btn btn-pri" id="bOk">Salvar alterações</button>`;
   }
@@ -679,6 +720,8 @@ function abrirForm(modo, id){
   atualizaTempo(); if(modo!=='ver') atualizaObs();
   const bOk=$('#bOk'); if(bOk) bOk.onclick = () => salvarForm(modo, id);
   const bDel=$('#bDel'); if(bDel) bDel.onclick = () => excluirReg(id);
+  const bEnt=$('#bEnt'); if(bEnt) bEnt.onclick = () => abrirEntrega(id);
+  const bDesf=$('#bDesf'); if(bDesf) bDesf.onclick = () => desfazerEntrega(id);
   const primeiro=f.querySelector('select:not([disabled]),input:not([type=hidden]):not([disabled])'); if(primeiro && modo!=='finalizar') primeiro.focus();
 }
 function abrirRegistro(id){ abrirForm(isAdmin()?'editar':'ver', id); }
@@ -708,8 +751,9 @@ async function salvarForm(modo, id){
   }
   const b=$('#bOk');
   if(modo==='iniciar')   return enviar(b, ()=>api('iniciar',{reg}), 'Operação iniciada.');
-  if(modo==='finalizar'){ const {sku,vol,un,pal,hf,div,obs}=reg; return enviar(b, ()=>api('finalizar',{id,reg:{sku,vol,un,pal,hf,div,obs}}), 'Operação finalizada e salva.'); }
-  if(modo==='novo')      return enviar(b, ()=>api('salvar',{reg}), 'Lançamento salvo.');
+  const msgSep = 'Pedido separado. Ele ficou em "Aguardando retirada".';
+  if(modo==='finalizar'){ const {sku,vol,un,pal,hf,div,obs}=reg; return enviar(b, ()=>api('finalizar',{id,reg:{sku,vol,un,pal,hf,div,obs}}), ehSeparacao(reg.mov)?msgSep:'Operação finalizada e salva.'); }
+  if(modo==='novo')      return enviar(b, ()=>api('salvar',{reg}), ehSeparacao(reg.mov)?msgSep:'Lançamento salvo.');
   if(modo==='editar')    return enviar(b, ()=>api('editar',{id,reg}), 'Alterações salvas.');
 }
 async function excluirReg(id){
@@ -721,6 +765,42 @@ async function enviar(botao, fn, ok){
   const txt=botao.textContent; botao.disabled=true; botao.textContent='Salvando…';
   try{ await fn(); fecharModal(); render(); toast(ok); }
   catch(e){ botao.disabled=false; botao.textContent=txt; if($('#fErro')) erroForm(e.message); else toast(e.message,true); }
+}
+
+/* ══════════ ENTREGA / RETIRADA ══════════ */
+function blocoEntrega(r){
+  if(r.stEnt===ST_AG) return `<div class="ent-box"><div class="tx"><b>Aguardando retirada</b>Separado em ${dataBR(r.data)} às ${esc(r.hf.slice(0,5))}, há ${fmtEspera((Date.now()-fimSeparacao(r))/1000)}.</div>
+    <button type="button" class="btn btn-pri" id="bEnt">Registrar entrega</button></div>`;
+  if(r.stEnt===ST_EN) return `<div class="ent-box"><div class="tx"><b>Entregue</b>Por ${esc(r.entPor)} em ${dataBR(r.entData)} às ${esc((r.entHora||'').slice(0,5))}${tempoRetirada(r)!=null?' ('+fmtEspera(tempoRetirada(r)).replace(/:\d\d$/,'')+' após a separação)':''}.
+    ${r.entObs?`<br>Observação: ${esc(r.entObs)}`:''}</div>${isAdmin()?'<button type="button" class="btn btn-sec" id="bDesf">Desfazer entrega</button>':''}</div>`;
+  return '';
+}
+function abrirEntrega(id){
+  const r=S.d.registros.find(x=>x.id===id); if(!r){ toast('Pedido não encontrado. Atualize os dados.',true); return; }
+  abrirModal('Registrar entrega', `
+    <div class="resumo-op"><div class="cli">${esc(r.cliente)}</div>
+      <div class="meta">${esc(r.nf||'Sem nº de pedido')} | ${nf(r.vol)} volumes | ${nf(r.un)} unidades${r.pal?' | '+nf(Math.abs(r.pal))+' pallets':''}<br>
+      Separado por ${esc(r.colab)} em ${dataBR(r.data)} às ${esc(r.hf.slice(0,5))}</div></div>
+    <form id="fEnt" class="form">
+      <label class="f full"><span>Quem entregou<em>*</em></span>${selectCad('por','colaboradores','')}</label>
+      <label class="f"><span>Dia<em>*</em></span><input class="in" type="date" name="data" value="${hojeISO()}" required></label>
+      <label class="f"><span>Horário<em>*</em></span><input class="in" type="time" step="1" name="hora" value="${agoraHora()}" required></label>
+      <label class="f full"><span>Observação da entrega</span>
+        <textarea class="in" name="obs" rows="3" placeholder="Ex.: retirado pelo motorista da transportadora, placa, volume avariado, entrega parcial…"></textarea></label>
+    </form><div id="fErro"></div>`,
+    `<button class="btn btn-sec" onclick="fecharModal()">Voltar</button><button class="btn btn-pri" id="bOk">Confirmar entrega</button>`);
+  $('#fEnt').por.focus();
+  $('#bOk').onclick = () => {
+    const f=$('#fEnt'); if(!f.reportValidity()) return;
+    let hora=f.hora.value; if(hora.length===5) hora+=':00';
+    const ent={ por:f.por.value, data:f.data.value, hora, obs:f.obs.value.trim() };
+    if(new Date(ent.data+'T'+hora) < fimSeparacao(r)) return erroForm('O horário da entrega está antes do fim da separação ('+dataBR(r.data)+' '+r.hf.slice(0,5)+'). Confira o dia e o horário.');
+    enviar($('#bOk'), ()=>api('entregar',{id,ent}), 'Entrega registrada.');
+  };
+}
+async function desfazerEntrega(id){
+  if(!confirm('Desfazer a entrega? O pedido volta para "Aguardando retirada" e os dados da entrega são apagados.')) return;
+  enviar($('#bDesf'), ()=>api('desfazerEntrega',{id}), 'Pedido voltou para aguardando retirada.');
 }
 
 /* ── Senha / conexão ── */
@@ -774,7 +854,8 @@ function posRender(){
 function tick(){
   document.querySelectorAll('[data-start]').forEach(el=>{
     const s=(Date.now()-new Date(el.dataset.start).getTime())/1000;
-    el.textContent=fmtDur(s); el.classList.toggle('longo', s>4*3600);
+    el.textContent = el.dataset.fmt==='espera' ? fmtEspera(s) : fmtDur(s);
+    el.classList.toggle('longo', s > (+el.dataset.lim || 4*3600));
   });
 }
 setInterval(tick, 1000);
