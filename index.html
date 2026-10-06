@@ -1,875 +1,1812 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8">
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1A3A6E">
-<title>PORTOEX | Controle de Estoque</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
+<title>PORTOEX · Leitor Serial × Etiqueta</title>
+<script>
+/* mostra qualquer erro do app no topo da tela (diagnóstico no coletor) */
+window.addEventListener('error',function(e){try{var d=document.getElementById('bootErr');if(!d){d=document.createElement('div');d.id='bootErr';d.style.cssText='position:fixed;left:0;right:0;top:0;z-index:99;background:#C4352B;color:#fff;padding:10px 14px;font:600 14px sans-serif';(document.body||document.documentElement).appendChild(d);}d.textContent='Erro: '+(e.message||'desconhecido')+' (linha '+(e.lineno||'?')+') · v2026.10.06-j';}catch(_){}});
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --navy:#1A3A6E; --navy-2:#122B54; --navy-3:#E6ECF5;
-  --orange:#E8611A; --orange-2:#C94F0F; --orange-3:#FDEEE4;
-  --bg:#EEF1F6; --card:#FFFFFF; --ink:#17233A; --muted:#5E6B82; --line:#D8DEE8;
-  --ok:#1E8A5A; --ok-3:#E3F4EC; --bad:#C0392B; --bad-3:#FBE7E5;
-  --disp:'Barlow Condensed','Arial Narrow',sans-serif;
-  --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --navy:#1A3A6E; --navy-2:#24508F; --orange:#E8611A; --orange-2:#FF7A33;
+  --bg:#EEF1F6; --surface:#FFFFFF; --ink:#14213A; --muted:#5B6882; --line:#D5DBE6;
+  --ok:#1F8A4C; --ok-bg:#E3F4EA; --err:#C4352B; --err-bg:#FBE5E2; --warn-bg:#FFF1E7;
+  --shadow:0 1px 2px rgba(20,33,58,.08);
+  --fh:'Barlow Condensed','Arial Narrow',Arial,sans-serif;
+  --fb:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
 }
-*{box-sizing:border-box}
-html,body{margin:0;min-height:100%}
-body{font-family:var(--body);background:var(--bg);color:var(--ink);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
-button,input,select,textarea{font:inherit;color:inherit}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1524; --surface:#162238; --ink:#E8EDF6; --muted:#9AA8C2; --line:#2A3A5A;
+    --ok-bg:#133322; --err-bg:#3A1A17; --warn-bg:#3A2415; --navy-2:#3B6BB5;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D1524; --surface:#162238; --ink:#E8EDF6; --muted:#9AA8C2; --line:#2A3A5A;
+  --ok-bg:#133322; --err-bg:#3A1A17; --warn-bg:#3A2415; --navy-2:#3B6BB5;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--fb);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+input{font:inherit}
 :focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+.screen{display:none;min-height:100%;flex-direction:column}
+.screen.on{display:flex}
+
+/* top bar */
+.bar{background:var(--navy);color:#fff;display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:4px solid var(--orange);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.brand{font-family:var(--fh);font-weight:800;font-size:22px;letter-spacing:.04em;line-height:1}
+.brand small{display:block;font-family:var(--fb);font-weight:500;font-size:11px;letter-spacing:0;opacity:.75;margin-top:3px}
+.bar .sp{flex:1}
+.bar .meta{text-align:right;font-family:var(--fh);line-height:1.05}
+.bar .meta b{display:block;font-size:22px;font-weight:700}
+.bar .meta span{font-size:13px;opacity:.8}
+
+.wrap{width:100%;max-width:560px;margin:0 auto;padding:16px}
+
+/* start screen */
+.hero{padding:28px 0 8px}
+.hero h1{font-family:var(--fh);font-weight:800;font-size:40px;line-height:1;margin:0 0 8px;color:var(--navy)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .hero h1{color:var(--ink)}}
+:root[data-theme="dark"] .hero h1{color:var(--ink)}
+.hero p{margin:0;color:var(--muted);max-width:40ch}
+.field{margin-top:22px}
+.field label{display:block;font-weight:600;font-size:14px;margin-bottom:6px}
+.big-input{width:100%;font-family:var(--fh);font-size:34px;font-weight:700;letter-spacing:.03em;padding:12px 14px;border:2px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)}
+.big-input:focus{border-color:var(--navy-2);outline:none;box-shadow:0 0 0 3px rgba(232,97,26,.35)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:0 18px;border-radius:10px;font-weight:700;font-size:16px}
+.btn-block{width:100%}
+.btn-primary{background:var(--orange);color:#fff}
+.btn-primary:active{background:#C94F10}
+.btn-primary:disabled{opacity:.45}
+.btn-navy{background:var(--navy);color:#fff}
+.btn-ghost{background:var(--surface);border:1.5px solid var(--line);color:var(--ink)}
+.btn-danger{background:var(--err);color:#fff}
+.mt{margin-top:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;box-shadow:var(--shadow)}
+.resume{border-left:5px solid var(--orange);margin-top:22px}
+.resume h3{margin:0 0 2px;font-family:var(--fh);font-size:22px}
+.resume p{margin:0 0 12px;color:var(--muted);font-size:14px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sec-title{font-family:var(--fh);font-weight:700;font-size:20px;margin:28px 0 8px}
+.hist{list-style:none;margin:0;padding:0}
+.hist li{display:flex;align-items:center;gap:10px;padding:12px 2px;border-bottom:1px solid var(--line)}
+.hist li:last-child{border-bottom:0}
+.hist .h-mov{font-family:var(--fh);font-weight:700;font-size:20px}
+.hist .h-inf{font-size:13px;color:var(--muted)}
+.hist .grow{flex:1;min-width:0}
+.link-btn{color:var(--navy-2);font-weight:700;padding:10px 12px;min-height:44px;border-radius:8px;background:var(--bg)}
+.link-del{color:var(--err);font-weight:600;padding:10px 8px;min-height:44px;margin-left:4px}
+.ver{text-align:center;font-size:11px;color:var(--muted);margin:-12px 0 24px}
+.del-mov{display:block;margin:4px auto 28px;color:var(--err);font-weight:600;padding:10px 12px}
+.empty{color:var(--muted);font-size:14px}
+
+/* reading screen */
+.prompt{padding:14px 16px 12px;background:var(--surface);border-bottom:1px solid var(--line)}
+.steps{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--muted)}
+.steps .st{display:flex;align-items:center;gap:6px}
+.steps .dot{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--line);font-size:12px;font-weight:700}
+.steps .st.act{color:var(--ink)}
+.steps .st.act .dot{background:var(--navy);border-color:var(--navy);color:#fff}
+.steps .st.act.two .dot{background:var(--orange);border-color:var(--orange)}
+.steps .st.done .dot{background:var(--ok);border-color:var(--ok);color:#fff}
+.steps .ln{flex:1;height:2px;background:var(--line)}
+.ask{font-family:var(--fh);font-weight:800;font-size:34px;line-height:1;margin:10px 0 0;color:var(--navy)}
+.ask.two{color:var(--orange)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .ask:not(.two){color:#8FB3F0}}
+:root[data-theme="dark"] .ask:not(.two){color:#8FB3F0}
+.ask small{display:block;font-family:var(--fb);font-weight:500;font-size:13px;color:var(--muted);margin-top:6px}
+
+.cam{position:relative;background:#000;aspect-ratio:4/3;max-height:42vh;width:100%;overflow:hidden;display:none}
+.cam.on{display:block}
+.scan{padding:14px 16px;background:var(--surface);border-bottom:1px solid var(--line)}
+.scan-box{position:relative;display:block;border:3px solid var(--navy-2);border-radius:14px;background:var(--bg);padding:10px 14px 12px;cursor:text;transition:border-color .2s}
+.scan-box.two{border-color:var(--orange)}
+.scan-box.off{border-style:dashed;border-color:var(--line)}
+.scan-state{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--muted)}
+.scan-state i{width:10px;height:10px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 4px var(--ok-bg);flex:none}
+.scan-box.off .scan-state i{background:var(--muted);box-shadow:none}
+.scan-box input{display:block;width:100%;border:0;background:transparent;color:var(--ink);font-family:var(--fh);font-weight:700;font-size:30px;letter-spacing:.02em;padding:4px 0 0;outline:none;caret-color:var(--orange)}
+.scan-box input::placeholder{color:var(--muted);opacity:.55}
+.alt{display:flex;gap:8px;margin-top:10px}
+.alt .btn{flex:1;min-height:42px;font-size:14px;font-weight:600;padding:0 10px}
+.alt .btn[aria-pressed="true"]{background:var(--navy);color:#fff;border-color:var(--navy)}
+#reader{width:100%;height:100%}
+#reader video{width:100%!important;height:100%!important;object-fit:cover}
+.frame{position:absolute;inset:14% 10%;border:3px solid var(--navy-2);border-radius:14px;pointer-events:none;transition:inset .25s ease,border-color .25s}
+.frame.two{inset:12% 24%;border-color:var(--orange)}
+.cam-msg{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;text-align:center;color:#fff;background:#0D1524}
+.cam-msg.on{display:flex}
+.cam-msg p{margin:0;max-width:34ch;font-size:14px;opacity:.9}
+.cam-tools{position:absolute;right:10px;bottom:10px;display:flex;gap:8px}
+.cam-tools button{background:rgba(0,0,0,.55);color:#fff;border-radius:999px;padding:8px 12px;font-size:13px;font-weight:600}
+.flash{position:fixed;inset:0;pointer-events:none;opacity:0;z-index:15}
+.flash.ok{background:rgba(31,138,76,.35);animation:fl .5s ease}
+.flash.err{background:rgba(196,53,43,.42);animation:fl .6s ease}
+@keyframes fl{0%{opacity:1}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.flash.ok,.flash.err{animation-duration:.01s}.frame{transition:none}}
+
+.pending{display:none;align-items:center;gap:10px;padding:10px 16px;background:var(--warn-bg);border-bottom:1px solid var(--line)}
+.pending.on{display:flex}
+.pending .pv{flex:1;min-width:0}
+.pending .pv span{font-size:12px;color:var(--muted);display:block}
+.pending .pv b{font-family:var(--fh);font-size:20px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.manual{display:flex;gap:8px;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--line)}
+.manual input{flex:1;min-width:0;border:1.5px solid var(--line);border-radius:10px;padding:0 12px;min-height:46px;background:var(--bg);color:var(--ink)}
+.manual input:focus{outline:none;border-color:var(--navy-2)}
+.manual .btn{min-height:46px}
+
+.list-head{display:flex;justify-content:space-between;align-items:baseline;padding:14px 16px 6px}
+.list-head h2{margin:0;font-family:var(--fh);font-size:20px}
+.list-head span{font-size:13px;color:var(--muted)}
+.pairs{list-style:none;margin:0;padding:0 16px 120px}
+.pair{display:grid;grid-template-columns:38px 1fr auto;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 10px 10px 0;margin-bottom:8px}
+.pair .n{font-family:var(--fh);font-weight:700;font-size:18px;text-align:right;color:var(--muted)}
+.pair .v{min-width:0;font-size:14px}
+.pair .v div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pair .v em{font-style:normal;font-size:11px;font-weight:600;color:var(--muted);display:inline-block;width:62px}
+.pair .del{color:var(--muted);padding:8px;font-size:20px;line-height:1}
+.pair.new{border-color:var(--ok);background:var(--ok-bg)}
+
+.dock{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding:10px 16px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:1fr 1fr;gap:10px;z-index:6}
+.dock .btn{min-height:56px;font-size:17px}
+
+/* pause overlay */
+.overlay{position:fixed;inset:0;background:rgba(10,18,34,.72);display:none;align-items:flex-end;justify-content:center;z-index:20;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+.overlay.on{display:flex}
+.sheet{background:var(--surface);color:var(--ink);border-radius:16px;padding:20px;width:100%;max-width:520px}
+.sheet h3{margin:0 0 6px;font-family:var(--fh);font-size:28px;line-height:1.05}
+.sheet p{margin:0 0 16px;color:var(--muted);white-space:pre-line}
+.sheet .stack{display:grid;gap:10px}
+.pause-ic{width:52px;height:52px;border-radius:50%;background:var(--orange);display:grid;place-items:center;margin-bottom:12px}
+.pause-ic::before,.pause-ic::after{content:"";display:none}
+
+/* end screen */
+.sum{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:4px}
+.sum .card b{display:block;font-family:var(--fh);font-size:30px;line-height:1;margin-top:4px}
+.sum .card span{font-size:12px;color:var(--muted);font-weight:600}
+.sum .wide{grid-column:1/-1}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:4px;gap:4px}
+.seg button{min-height:44px;border-radius:7px;font-weight:600;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:8px}
+.seg button[aria-pressed="true"]{background:var(--navy);color:#fff}
+.seg svg{flex:none}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-top:10px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{background:var(--navy);color:#fff;text-align:left;font-weight:600;padding:8px 10px;white-space:nowrap}
+td{padding:7px 10px;border-top:1px solid var(--line);white-space:nowrap}
+td:first-child,th:first-child{text-align:right;width:40px}
+
+.toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;font-size:14px;z-index:30;max-width:calc(100% - 32px);opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.on{opacity:1}
+.toast.err{background:var(--err);color:#fff}
+.toast.ok{background:var(--ok);color:#fff}
 .hidden{display:none!important}
-
-/* ── Topo ── */
-.topo{position:sticky;top:0;z-index:20;background:var(--navy);color:#fff;padding-top:env(safe-area-inset-top,0px)}
-.topo-in{max-width:1280px;margin:0 auto;display:flex;align-items:center;gap:14px;padding:10px 18px}
-.marca{display:flex;align-items:baseline;gap:10px;min-width:0}
-.marca b{font-family:var(--disp);font-weight:800;font-size:26px;letter-spacing:.5px;line-height:1}
-.marca b i{font-style:normal;color:var(--orange)}
-.marca span{font-family:var(--disp);font-weight:500;font-size:19px;color:#C9D4E6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.topo .esp{flex:1}
-.btn-topo{background:transparent;border:1px solid rgba(255,255,255,.28);color:#fff;border-radius:8px;padding:7px 12px;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;font-size:14px}
-.btn-topo:hover{background:rgba(255,255,255,.1)}
-.sync{font-size:12px;color:#AFC0DA;white-space:nowrap}
-.menu{position:relative}
-.menu-lista{position:absolute;right:0;top:calc(100% + 6px);background:#fff;color:var(--ink);border-radius:10px;box-shadow:0 12px 32px rgba(18,43,84,.25);min-width:200px;padding:6px;z-index:30}
-.menu-lista button{display:block;width:100%;text-align:left;background:none;border:0;padding:10px 12px;border-radius:7px;cursor:pointer}
-.menu-lista button:hover{background:var(--navy-3)}
-.menu-lista .quem{padding:8px 12px 10px;border-bottom:1px solid var(--line);margin-bottom:4px;font-size:13px;color:var(--muted)}
-.menu-lista .quem strong{display:block;color:var(--ink);font-size:14px}
-
-.abas{background:var(--navy-2)}
-.abas-in{max-width:1280px;margin:0 auto;display:flex;gap:2px;padding:0 12px;overflow-x:auto;scrollbar-width:none}
-.abas button{background:none;border:0;color:#B8C6DC;padding:12px 16px 11px;font-family:var(--disp);font-weight:600;font-size:18px;letter-spacing:.3px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
-.abas button[aria-selected="true"]{color:#fff;border-bottom-color:var(--orange)}
-.abas button:hover{color:#fff}
-
-main{max-width:1280px;margin:0 auto;padding:22px 18px calc(40px + env(safe-area-inset-bottom,0px))}
-h2{font-family:var(--disp);font-weight:700;font-size:24px;margin:0 0 12px;color:var(--navy)}
-h2 small{font-family:var(--body);font-weight:500;font-size:14px;color:var(--muted);margin-left:8px}
-.secao{margin-top:28px}
-
-/* ── Botões ── */
-.btn{border:0;border-radius:9px;padding:11px 18px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:background .15s}
-.btn:disabled{opacity:.55;cursor:progress}
-.btn-pri{background:var(--orange);color:#fff}.btn-pri:hover{background:var(--orange-2)}
-.btn-nav{background:var(--navy);color:#fff}.btn-nav:hover{background:var(--navy-2)}
-.btn-sec{background:#fff;color:var(--navy);border:1px solid var(--line)}.btn-sec:hover{border-color:var(--navy)}
-.btn-txt{background:none;color:var(--muted);padding:11px 10px}.btn-txt:hover{color:var(--bad)}
-.btn-del{background:var(--bad-3);color:var(--bad)}.btn-del:hover{background:#F6D3CF}
-.btn-g{padding:16px 22px;font-size:17px}
-
-/* ── Operação ── */
-.acoes{display:flex;gap:12px;flex-wrap:wrap}
-.cards-and{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
-.and{background:var(--card);border-radius:12px;border-left:6px solid var(--orange);padding:16px 18px 14px;box-shadow:0 1px 2px rgba(18,43,84,.08);display:flex;flex-direction:column;gap:6px}
-.and .cli{font-family:var(--disp);font-weight:700;font-size:24px;line-height:1.05;color:var(--navy)}
-.and .mov{font-size:13px;font-weight:600;color:var(--orange-2)}
-.and .meta{font-size:13px;color:var(--muted)}
-.relogio{font-family:var(--disp);font-weight:700;font-size:54px;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:1px;color:var(--ink);margin:6px 0 2px}
-.relogio.longo{color:var(--bad)}
-.and.ret{border-left-color:var(--navy)}
-.and .rod .btn{white-space:nowrap}
-.and.ret .mov{color:var(--navy)}
-.relogio.md{font-size:40px}
-.tag.ag{background:var(--orange-3);color:var(--orange-2)}
-.ent-box{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-.ent-box .tx{flex:1;min-width:200px;font-size:14px}
-.ent-box .tx b{display:block;font-family:var(--disp);font-size:18px;color:var(--navy)}
-textarea.in{resize:vertical;min-height:70px}
-.and .rod{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
-.vazio{background:var(--card);border:2px dashed var(--line);border-radius:12px;padding:26px;text-align:center;color:var(--muted)}
-.lista-hoje{background:var(--card);border-radius:12px;overflow:hidden;box-shadow:0 1px 2px rgba(18,43,84,.08)}
-.lh{display:grid;grid-template-columns:120px 1fr 1fr 90px;gap:10px;padding:11px 16px;border-top:1px solid var(--line);align-items:center;cursor:pointer}
-.lh:first-child{border-top:0}
-.lh:hover{background:#F7F9FC}
-.lh .h{font-variant-numeric:tabular-nums;color:var(--muted);font-size:14px}
-.lh .c{font-weight:600}
-.lh .t{font-family:var(--disp);font-weight:600;font-size:19px;text-align:right;font-variant-numeric:tabular-nums}
-
-/* ── Filtros / tabela ── */
-.filtros{background:var(--card);border-radius:12px;padding:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;box-shadow:0 1px 2px rgba(18,43,84,.08)}
-label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
-.in{width:100%;border:1px solid var(--line);border-radius:8px;padding:10px 11px;background:#fff;min-height:42px}
-.in:focus{border-color:var(--navy);outline:none;box-shadow:0 0 0 3px var(--navy-3)}
-.in:disabled{background:#F4F6FA;color:var(--ink)}
-.resumo{display:flex;flex-wrap:wrap;gap:8px 22px;margin:14px 2px 10px;font-size:14px;color:var(--muted)}
-.resumo b{font-family:var(--disp);font-size:20px;color:var(--ink);font-weight:700;margin-right:4px}
-.barra{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}
-.tab-wrap{background:var(--card);border-radius:12px;overflow-x:auto;box-shadow:0 1px 2px rgba(18,43,84,.08)}
-table.t{width:100%;border-collapse:collapse;font-size:14px}
-table.t th{position:sticky;top:0;background:var(--navy-3);color:var(--navy);text-align:left;font-weight:600;font-size:13px;padding:10px 10px;white-space:nowrap}
-table.t td{padding:10px;border-top:1px solid var(--line);white-space:nowrap}
-table.t td.n,table.t th.n{text-align:right;font-variant-numeric:tabular-nums}
-table.t tbody tr{cursor:pointer}
-table.t tbody tr:hover{background:#F7F9FC}
-.tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:12px;font-weight:600}
-.tag.ok{background:var(--ok-3);color:var(--ok)}.tag.bad{background:var(--bad-3);color:var(--bad)}
-.tag.off{background:#EEF0F4;color:var(--muted)}
-.nota{font-size:13px;color:var(--muted);margin:10px 2px}
-
-/* ── Painel ── */
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:14px}
-.kpi{background:var(--card);border-radius:12px;padding:14px 16px;box-shadow:0 1px 2px rgba(18,43,84,.08)}
-.kpi .v{font-family:var(--disp);font-weight:700;font-size:36px;line-height:1.05;color:var(--navy);font-variant-numeric:tabular-nums}
-.kpi .l{font-size:13px;color:var(--muted)}
-.kpi.dest{background:var(--navy)}.kpi.dest .v{color:#fff}.kpi.dest .l{color:#B8C6DC}
-.grade2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
-.bloco{background:var(--card);border-radius:12px;padding:16px 18px;box-shadow:0 1px 2px rgba(18,43,84,.08);min-width:0}
-.bloco h3{font-family:var(--disp);font-weight:700;font-size:20px;margin:0 0 12px;color:var(--navy)}
-.bar{display:grid;grid-template-columns:minmax(90px,150px) 1fr auto;gap:10px;align-items:center;margin:7px 0;font-size:14px}
-.bar .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bar .tr{display:block;background:var(--navy-3);border-radius:4px;height:14px;overflow:hidden}
-.bar .fl{display:block;height:100%;background:var(--navy);border-radius:4px}
-.bar.lar .fl{background:var(--orange)}
-.bar .vl{font-variant-numeric:tabular-nums;font-weight:600;min-width:52px;text-align:right}
-
-/* ── Cadastros ── */
-.seg{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
-.seg button{border:1px solid var(--line);background:#fff;border-radius:20px;padding:7px 14px;cursor:pointer;font-weight:500}
-.seg button[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
-.add{display:flex;gap:10px;margin-bottom:12px}
-.add .in{flex:1}
-.cad{background:var(--card);border-radius:12px;box-shadow:0 1px 2px rgba(18,43,84,.08);overflow:hidden}
-.cad-l{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--line)}
-.cad-l:first-child{border-top:0}
-.cad-l .nm{flex:1;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis}
-.cad-l.inativo .nm{color:var(--muted);text-decoration:line-through}
-.mini{border:1px solid var(--line);background:#fff;border-radius:7px;padding:6px 10px;font-size:13px;cursor:pointer}
-.mini:hover{border-color:var(--navy)}
-
-/* ── Modal ── */
-.fundo{position:fixed;inset:0;background:rgba(18,43,84,.55);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:calc(20px + env(safe-area-inset-top,0px)) 12px 20px;overflow-y:auto}
-.modal{background:#fff;border-radius:14px;width:100%;max-width:620px;box-shadow:0 20px 60px rgba(0,0,0,.3);animation:sobe .18s ease-out}
-@keyframes sobe{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
-.modal-cab{background:var(--navy);color:#fff;border-radius:14px 14px 0 0;padding:14px 18px;display:flex;align-items:center;gap:10px}
-.modal-cab h3{margin:0;font-family:var(--disp);font-weight:700;font-size:22px;flex:1}
-.modal-cab button{background:none;border:0;color:#fff;font-size:26px;line-height:1;cursor:pointer;padding:2px 6px}
-.modal-corpo{padding:18px}
-.modal-rod{padding:14px 18px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
-.modal-rod .esq{margin-right:auto}
-.form{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.form .full{grid-column:1/-1}
-.form label.f{color:var(--ink);font-weight:600}
-.form label.f em{font-style:normal;color:var(--orange)}
-.dica{font-weight:400;color:var(--muted);font-size:12px}
-.resumo-op{background:var(--orange-3);border-radius:10px;padding:12px 14px;margin-bottom:16px}
-.resumo-op .cli{font-family:var(--disp);font-weight:700;font-size:22px;color:var(--navy)}
-.resumo-op .meta{font-size:13px;color:var(--muted)}
-.sn{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
-.sn label{flex:1;text-align:center;padding:10px;cursor:pointer;font-weight:600;color:var(--muted)}
-.sn input{position:absolute;opacity:0;pointer-events:none}
-.sn label:has(input:checked){background:var(--navy);color:#fff}
-.sn label.sim:has(input:checked){background:var(--bad);color:#fff}
-.sn label:has(input:focus-visible){outline:3px solid var(--orange);outline-offset:-3px}
-.tempo{font-family:var(--disp);font-size:20px;font-weight:700;color:var(--navy);font-variant-numeric:tabular-nums}
-.erro{background:var(--bad-3);color:var(--bad);border-radius:8px;padding:10px 12px;font-size:14px;margin-top:12px}
-
-/* ── Login ── */
-.login{min-height:100vh;display:grid;place-items:center;padding:24px;background:var(--navy)}
-.login-box{background:#fff;border-radius:16px;width:100%;max-width:380px;padding:30px 26px;box-shadow:0 24px 60px rgba(0,0,0,.35)}
-.login-box .marca b{font-size:40px;color:var(--navy)}
-.login-box .marca span{color:var(--muted);font-size:22px}
-.login-box form{display:grid;gap:14px;margin-top:22px}
-.chk{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--muted)}
-.link{background:none;border:0;color:var(--navy);text-decoration:underline;cursor:pointer;font-size:13px;padding:0}
-
-.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;z-index:80;font-weight:500;box-shadow:0 10px 30px rgba(0,0,0,.3);max-width:calc(100% - 24px)}
-.toast.bad{background:var(--bad)}
-.carregando{display:grid;place-items:center;padding:60px;color:var(--muted)}
-
-@media (max-width:760px){
-  .grade2{grid-template-columns:1fr}
-  .form{gap:12px}
-  .form .wm{grid-column:1/-1}
-  .sync{display:none}
-  .marca span{font-size:16px}
-  .lh{grid-template-columns:1fr auto;gap:2px 10px}
-  .lh .h{grid-column:1}.lh .t{grid-row:1/3;grid-column:2}
-  .relogio{font-size:48px}
-  .btn-g{flex:1}
-  /* tabela vira cartões */
-  table.t thead{display:none}
-  table.t,table.t tbody,table.t tr,table.t td{display:block;width:100%}
-  table.t tr{border-top:1px solid var(--line);padding:10px 14px;display:grid;grid-template-columns:1fr 1fr;gap:2px 10px}
-  table.t td{border:0;padding:1px 0;white-space:normal;text-align:left!important;font-size:13px}
-  table.t td::before{content:attr(data-l) ": ";color:var(--muted)}
-  table.t td.cli{grid-column:1/-1;font-weight:700;font-size:15px;order:-1}
-  table.t td.cli::before{content:none}
-}
-@media (prefers-reduced-motion:reduce){.modal{animation:none}}
+.last{display:none;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border-bottom:1px solid var(--line)}
+.last.on{display:grid}
+.lb-cell{background:var(--surface);padding:10px 16px}
+.lb-cell span{display:block;font-size:12px;font-weight:600;color:var(--muted)}
+.lb-cell b{display:block;font-family:var(--fh);font-weight:800;font-size:40px;line-height:1;color:var(--navy)}
+.lb-cell.vol b{color:var(--orange)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .lb-cell b{color:#8FB3F0}:root:not([data-theme="light"]) .lb-cell.vol b{color:var(--orange-2)}}
+:root[data-theme="dark"] .lb-cell b{color:#8FB3F0}
+:root[data-theme="dark"] .lb-cell.vol b{color:var(--orange-2)}
+.lb-foot{grid-column:1/-1;background:var(--surface);padding:0 16px 10px;font-size:12px;color:var(--muted)}
+.pair .v .nf{font-weight:700}
+.pair .v .nf span{color:var(--orange);margin-left:6px}
+.pair .v .et{font-size:11px;color:var(--muted);letter-spacing:.02em}
+.nfsum{list-style:none;margin:0;padding:0}
+.nfsum li{display:flex;justify-content:space-between;align-items:baseline;padding:10px 2px;border-bottom:1px solid var(--line);font-size:15px}
+.nfsum li:last-child{border-bottom:0}
+.nfsum b{font-family:var(--fh);font-size:20px}
+.nfsum span{font-weight:600;color:var(--muted)}
+.nfsum span.full{color:var(--ok)}
+.btn-wa{background:#1FA855;color:#fff}
+.btn-wa:active{background:#178a45}
+.sync{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;white-space:nowrap}
+.sync::before{content:"";width:8px;height:8px;border-radius:50%;background:#9AA8C2;flex:none}
+.sync.ok::before{background:#3DDC84}.sync.warn::before{background:#FFB020}.sync.err::before{background:#FF5A4E}.sync.run::before{background:#8FB3F0}
+.card .sync{background:var(--bg);color:var(--ink);font-size:14px;padding:6px 12px}
+.hist-tools{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.hist-tools input{grid-column:1/-1;min-width:0;min-height:44px;border:1.5px solid var(--line);border-radius:10px;padding:0 12px;background:var(--surface);color:var(--ink)}
+.hist-tools input:focus{outline:none;border-color:var(--navy-2)}
+.hist-tools .btn{min-height:44px;font-size:14px}
+.tag.dev{color:var(--muted);border-color:var(--line)}
+.tag.live{color:var(--ok);border-color:var(--ok)}
+.note{background:var(--warn-bg);border-radius:10px;padding:10px 12px;font-size:14px;margin-bottom:10px}
+.chk{display:flex;align-items:center;gap:12px;padding:12px 2px;border-bottom:1px solid var(--line);cursor:pointer}
+.chk:last-child{border-bottom:0}
+.chk input{width:26px;height:26px;accent-color:var(--orange);flex:none;margin:0}
+.chk .grow{flex:1;min-width:0}
+.hint{font-size:13px;color:var(--muted);margin:8px 2px 0}
+tr.gap td{text-align:left!important;background:var(--err-bg);color:var(--err);font-weight:700;white-space:normal}
+tr.gap.tail td{background:var(--warn-bg);color:#B4541A}
+tr.mhead td{text-align:left!important;background:var(--navy);color:#fff;font-weight:700;font-size:14px;white-space:normal;border-top:10px solid var(--surface);padding:9px 10px}
+tr.mhead td span{font-weight:500;opacity:.85}
+tr.mhead:first-child td{border-top:0}
+.nfsum li{flex-wrap:wrap}
+.nfsum .gaps{flex-basis:100%;font-size:13px;font-weight:600;color:var(--err);margin-top:4px}
+.nfsum .pend{flex-basis:100%;font-size:13px;color:var(--muted);margin-top:2px}
+.lb-foot .warn{display:block;color:var(--err);font-weight:700;margin-top:3px}
+.tag{display:inline-block;font-size:11px;font-weight:700;color:var(--orange);border:1px solid var(--orange);border-radius:4px;padding:0 5px;margin-left:6px;vertical-align:2px;font-family:var(--fb)}
+.ov-in{width:100%;min-height:50px;border:2px solid var(--line);border-radius:10px;padding:0 14px;margin:0 0 14px;background:var(--bg);color:var(--ink);font-size:18px}
+.ov-in:focus{outline:none;border-color:var(--navy-2)}
+.ov-in.masked{-webkit-text-security:disc;text-security:disc}
 </style>
 </head>
 <body>
-<div id="app"></div>
 
-<script>
-/* ═══════════════════════════════════════════════════════════
-   CONFIGURAÇÃO: cole aqui a URL do Web App do Apps Script (/exec)
-   (também dá para configurar pela tela de login, em "Conexão")
-   ═══════════════════════════════════════════════════════════ */
-const API_PADRAO = 'https://script.google.com/macros/s/AKfycbzm0jDkFfgGpci-E0SPLV3qmBdwst1fv9vTjDn2lvFxtY4JFuHn5aPjdztyIMgk24wtlA/exec';
+<!-- ============ TELA 1: MOVIMENTO ============ -->
+<section class="screen on" id="scrMov" aria-label="Número do movimento">
+  <header class="bar">
+    <div class="brand">PORTOEX<small>Estoque · Leitor Serial × Etiqueta</small></div>
+  </header>
+  <div class="wrap">
+    <div class="hero">
+      <h1>Nova conferência</h1>
+      <p>Leia ou digite o número do movimento e escolha o tipo de leitura. No modo pareado, cada serial é amarrado à etiqueta interna lida logo em seguida.</p>
+    </div>
 
-const LS = {
-  get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
-  set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} },
-  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
-};
-const K_API='pe_estoque_api', K_LOGIN='pe_estoque_login';
+    <div id="resumeBox"></div>
 
-const hojeISO = () => { const d=new Date(); return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate()); };
-const agoraHora = () => { const d=new Date(); return p2(d.getHours())+':'+p2(d.getMinutes())+':'+p2(d.getSeconds()); };
-const p2 = n => String(n).padStart(2,'0');
-
-const S = {
-  api: LS.get(K_API) || API_PADRAO,
-  user:null, senha:null, d:null, tab:'operacao', cad:'clientes', usuarios:null, menu:false,
-  f:{ de: hojeISO().slice(0,8)+'01', ate: hojeISO(), cliente:'', mov:'', colab:'', ent:'', q:'' },
-  p:{ mes: hojeISO().slice(0,7), cliente:'' }
-};
-
-/* ── utilidades ── */
-const $ = s => document.querySelector(s);
-const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const nf = n => (Number(n)||0).toLocaleString('pt-BR');
-const dataBR = iso => iso ? iso.split('-').reverse().join('/') : '';
-const seg = h => { const m=String(h||'').match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/); return m ? (+m[1])*3600+(+m[2])*60+(+(m[3]||0)) : null; };
-const dur = (hi,hf) => { const a=seg(hi), b=seg(hf); if(a==null||b==null) return null; let d=b-a; if(d<0) d+=86400; return d; };
-const fmtDur = s => { if(s==null||isNaN(s)) return '--:--:--'; s=Math.max(0,Math.round(s)); return p2(Math.floor(s/3600))+':'+p2(Math.floor(s%3600/60))+':'+p2(s%60); };
-const fmtDurCurto = s => { if(s==null||isNaN(s)) return '-'; s=Math.round(s); const h=Math.floor(s/3600), m=Math.round(s%3600/60); return h ? h+'h'+p2(m) : m+' min'; };
-const ehEntrada = m => /ENTRADA|RECEB/i.test(m||'');
-const ehSeparacao = m => /SEPARA/i.test(m||'');
-const ST_AG='AGUARDANDO RETIRADA', ST_EN='ENTREGUE';
-const aguardando = () => (S.d?.registros||[]).filter(r=>r.stEnt===ST_AG);
-const isoLocal = d => d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())+'T'+p2(d.getHours())+':'+p2(d.getMinutes())+':'+p2(d.getSeconds());
-/* fim da separação = data + hora final (se a hora final for menor que a inicial, virou o dia) */
-function fimSeparacao(r){ const d=new Date(r.data+'T'+(r.hf||'00:00:00')); if(seg(r.hf)!=null && seg(r.hf)<seg(r.hi)) d.setDate(d.getDate()+1); return d; }
-function tempoRetirada(r){ if(r.stEnt!==ST_EN || !r.entData) return null; return (new Date(r.entData+'T'+(r.entHora||'00:00:00')) - fimSeparacao(r))/1000; }
-const fmtEspera = s => { if(s==null||isNaN(s)) return '-'; s=Math.max(0,Math.round(s)); const d=Math.floor(s/86400); return (d? d+'d ':'')+p2(Math.floor(s%86400/3600))+':'+p2(Math.floor(s%3600/60))+(d?'':':'+p2(s%60)); };
-const tagEnt = r => r.stEnt===ST_AG ? '<span class="tag ag">Aguardando retirada</span>' : r.stEnt===ST_EN ? '<span class="tag ok">Entregue</span>' : '';
-const isAdmin = () => S.user && S.user.perfil==='ADMIN';
-const ativos = tipo => (S.d?.listas?.[tipo]||[]).filter(x=>x.ativo).map(x=>x.nome);
-
-function toast(msg, ruim){
-  const t=document.createElement('div'); t.className='toast'+(ruim?' bad':''); t.textContent=msg; t.setAttribute('role','status');
-  document.body.appendChild(t); setTimeout(()=>t.remove(), ruim?5200:2800);
-}
-
-/* ── API ── */
-async function api(acao, extra={}, cred){
-  if(!S.api) throw new Error('Configure a conexão com a planilha (URL do Apps Script).');
-  const c = cred || { usuario:S.user&&S.user.usuario, senha:S.senha };
-  let r;
-  try{
-    r = await fetch(S.api, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(Object.assign({acao}, c, extra)) });
-  }catch(e){ throw new Error('Sem conexão com a planilha. Verifique a internet e a URL do Apps Script.'); }
-  const txt = await r.text();
-  let j; try{ j = JSON.parse(txt); }catch(e){ throw new Error(diagnostico(txt, r.status)); }
-  if(!j.ok){
-    if(j.auth===false && S.user){ sair(); }
-    throw new Error(j.erro || 'Erro desconhecido.');
-  }
-  if(j.registros) S.d = { registros:j.registros, andamento:j.andamento||[], listas:j.listas||{}, ocupacao:j.ocupacao, at:new Date() };
-  return j;
-}
-
-/* Traduz a página de erro do Google em uma instrução clara */
-function diagnostico(txt, status){
-  const t = String(txt||'');
-  if(/accounts\.google\.com|ServiceLogin|signin/i.test(t))
-    return 'O Apps Script pediu login do Google. Em Implantar > Gerenciar implantações, o acesso precisa ser "Qualquer pessoa" (não "Qualquer pessoa com conta do Google" nem só da empresa).';
-  if(/doPost|função de script não encontrada|script function not found/i.test(t))
-    return 'O Apps Script não encontrou a função doPost. Cole o Code.gs completo, salve e publique uma nova versão da implantação.';
-  if(/authori[sz]|autoriza/i.test(t))
-    return 'O script precisa de autorização. No editor do Apps Script, execute configurarPlanilha uma vez, aceite as permissões e publique uma nova versão.';
-  if(status===404 || /não foi possível abrir o arquivo|unable to open the file|Page Not Found/i.test(t))
-    return 'URL do Apps Script não encontrada (404). Confira se a URL termina em /exec e se a implantação ainda existe.';
-  const m = t.match(/<title>([^<]*)<\/title>/i) || t.match(/TypeError[^<]*|Exception[^<]*|Error[^<]*/);
-  return 'O Apps Script devolveu uma página em vez de dados' + (m ? ': ' + (m[1]||m[0]).trim().slice(0,160) : '') + '. Abra a URL /exec no navegador para ver o erro completo.';
-}
-
-async function atualizar(silencioso){
-  try{ await api('dados'); render(); if(!silencioso) toast('Dados atualizados.'); }
-  catch(e){ if(!silencioso) toast(e.message,true); }
-}
-
-/* ── Login ── */
-function telaLogin(msg){
-  const salvo = JSON.parse(LS.get(K_LOGIN)||'null');
-  $('#app').innerHTML = `
-  <div class="login"><div class="login-box">
-    <div class="marca"><b>PORTO<i>EX</i></b><span>Estoque</span></div>
-    <form id="fLogin" autocomplete="on">
-      <label class="f">Usuário<input class="in" name="usuario" autocomplete="username" required autocapitalize="characters" value="${esc(salvo?.usuario||'')}"></label>
-      <label class="f">Senha<input class="in" type="password" name="senha" autocomplete="current-password" required></label>
-      <label class="chk"><input type="checkbox" name="manter" ${salvo?'checked':''}> Manter conectado neste aparelho</label>
-      <button class="btn btn-pri btn-g" type="submit">Entrar</button>
-      ${msg?`<div class="erro">${esc(msg)}</div>`:''}
-      <div style="text-align:center"><button type="button" class="link" onclick="abrirConexao()">Conexão com a planilha${S.api?'':' (não configurada)'}</button></div>
+    <form id="movForm" autocomplete="off">
+      <div class="field">
+        <label for="movInput">Nº MOVIMENTO / CÓD. PRODUTO</label>
+        <input id="movInput" class="big-input" name="px-movimento" autocomplete="off" data-lpignore="true" data-form-type="other" inputmode="text" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="go" placeholder="Ex.: 104587 ou 02SW002ADI" maxlength="40" required>
+      </div>
+      <div class="field">
+        <label>Tipo de leitura</label>
+        <div class="seg" role="group" aria-label="Tipo de leitura">
+          <button type="button" data-m="par" aria-pressed="true">Serial + Etiqueta</button>
+          <button type="button" data-m="uni" aria-pressed="false">Código único</button>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block mt" id="btnStart" type="submit">Iniciar leitura</button>
     </form>
-  </div></div>`;
-  $('#fLogin').onsubmit = async ev => {
-    ev.preventDefault();
-    const fd = new FormData(ev.target), b = ev.target.querySelector('button[type=submit]');
-    const usuario = String(fd.get('usuario')).trim().toUpperCase(), senha = String(fd.get('senha'));
-    b.disabled=true; b.textContent='Entrando…';
-    try{
-      await entrar(usuario, senha);
-      if(fd.get('manter')) LS.set(K_LOGIN, JSON.stringify({usuario,senha})); else LS.del(K_LOGIN);
-    }catch(e){ telaLogin(e.message); }
-  };
-}
 
-async function entrar(usuario, senha){
-  const j = await api('login', {}, {usuario, senha});
-  S.user = j.user; S.senha = senha;
-  $('#app').innerHTML = '<div class="carregando">Carregando dados da planilha…</div>';
-  await api('dados');
-  render();
-}
+    <h2 class="sec-title">Movimentos (todos os aparelhos)</h2>
+    <div class="hist-tools">
+      <input id="histQ" type="search" name="px-busca-mov" inputmode="text" autocapitalize="characters" autocorrect="off" spellcheck="false" data-lpignore="true" data-form-type="other" placeholder="Buscar movimento / cód. produto" aria-label="Buscar movimento" autocomplete="off">
+      <button class="btn btn-ghost" id="btnHistRef" type="button">Atualizar</button>
+      <button class="btn btn-ghost" id="btnSel" type="button">Exportar vários</button>
+    </div>
+    <div class="h-inf" id="histInfo" style="margin:0 2px 8px"></div>
+    <div class="card" style="padding:4px 14px"><ul class="hist" id="histList"></ul></div>
 
-function sair(){
-  LS.del(K_LOGIN); S.user=null; S.senha=null; S.d=null; S.usuarios=null; fecharModal(); telaLogin();
-}
-
-/* ── Casca ── */
-const ABAS = [['operacao','Operação'],['lancamentos','Lançamentos'],['painel','Painel'],['cadastros','Cadastros']];
-
-function render(){
-  if(!S.user || !S.d) return;
-  const abas = ABAS.filter(a => a[0]!=='cadastros' || isAdmin());
-  const hora = S.d.at ? p2(S.d.at.getHours())+':'+p2(S.d.at.getMinutes()) : '';
-  $('#app').innerHTML = `
-  <header class="topo">
-    <div class="topo-in">
-      <div class="marca"><b>PORTO<i>EX</i></b><span>Controle de Estoque</span></div>
-      <div class="esp"></div>
-      <span class="sync">Atualizado às ${hora}</span>
-      <button class="btn-topo" onclick="atualizar()" title="Buscar dados novos da planilha">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>Atualizar</button>
-      <div class="menu">
-        <button class="btn-topo" onclick="S.menu=!S.menu;render()" aria-expanded="${S.menu}">${esc(S.user.nome.split(' ')[0])} ▾</button>
-        ${S.menu?`<div class="menu-lista">
-          <div class="quem"><strong>${esc(S.user.nome)}</strong>${esc(S.user.usuario)} | ${S.user.perfil==='ADMIN'?'Administrador':'Operador'}</div>
-          <button onclick="S.menu=false;render();abrirSenha()">Trocar senha</button>
-          <button onclick="S.menu=false;render();abrirConexao()">Conexão com a planilha</button>
-          <button onclick="sair()">Sair</button>
-        </div>`:''}
+    <h2 class="sec-title">Banco de dados (Firebase)</h2>
+    <div class="card" style="margin-bottom:28px">
+      <span class="sync" id="syncHome">—</span>
+      <div class="h-inf" id="syncDev" style="margin-top:8px"></div>
+      <div class="row2 mt">
+        <button class="btn btn-ghost" id="btnSyncCfg" type="button">Configurar</button>
+        <button class="btn btn-navy" id="btnSyncNow" type="button">Enviar agora</button>
+      </div>
+      <div class="row2 mt">
+        <button class="btn btn-ghost" id="btnBkp" type="button">Backup na planilha</button>
+        <button class="btn btn-ghost" id="btnRest" type="button">Restaurar backup</button>
       </div>
     </div>
-    <nav class="abas"><div class="abas-in" role="tablist">
-      ${abas.map(a=>`<button role="tab" aria-selected="${S.tab===a[0]}" onclick="irAba('${a[0]}')">${a[1]}${a[0]==='operacao'&&(S.d.andamento.length+aguardando().length)?` (${S.d.andamento.length+aguardando().length})`:''}</button>`).join('')}
-    </div></nav>
+    <p class="ver">Versão v2026.10.06-j</p>
+  </div>
+</section>
+
+<!-- ============ TELA 2: LEITURA ============ -->
+<section class="screen" id="scrRead" aria-label="Leitura">
+  <header class="bar">
+    <div class="brand">PORTOEX<small id="rdMovLbl">Movimento</small></div>
+    <div class="sp"></div>
+    <span class="sync" id="syncChip">Sheets</span>
+    <div class="meta"><b id="rdCount">0</b><span id="rdUnit">pares</span></div>
   </header>
-  <main id="conteudo">${ ({operacao:vOperacao, lancamentos:vLancamentos, painel:vPainel, cadastros:vCadastros})[S.tab]() }</main>`;
-  posRender();
-  tick();
-}
-function irAba(t){ S.tab=t; S.menu=false; render(); window.scrollTo(0,0); if(t==='cadastros'&&S.cad==='usuarios') carregarUsuarios(); }
 
-/* ══════════ OPERAÇÃO ══════════ */
-function vOperacao(){
-  const and = S.d.andamento.slice().sort((a,b)=>(a.data+a.hi).localeCompare(b.data+b.hi));
-  const hoje = hojeISO();
-  const concl = S.d.registros.filter(r=>r.data===hoje).sort((a,b)=>b.hi.localeCompare(a.hi));
-  const ret = aguardando().sort((a,b)=>fimSeparacao(a)-fimSeparacao(b));
-  return `
-  <div class="acoes">
-    <button class="btn btn-pri btn-g" onclick="abrirForm('iniciar')">▶ Iniciar operação</button>
-    <button class="btn btn-sec btn-g" onclick="abrirForm('novo')">Lançar operação já concluída</button>
+  <div class="prompt">
+    <div class="steps" id="stepsBar">
+      <div class="st act" id="st1"><span class="dot">1</span>Serial</div>
+      <div class="ln"></div>
+      <div class="st two" id="st2"><span class="dot">2</span>Etiqueta interna</div>
+    </div>
+    <p class="ask" id="askTxt">Leia o SERIAL<small>Código de barras do produto</small></p>
   </div>
 
-  <section class="secao">
-    <h2>Em andamento<small>${and.length?and.length+' operação'+(and.length>1?'ões':''):''}</small></h2>
-    ${and.length ? `<div class="cards-and">${and.map(a=>`
-      <article class="and">
-        <div class="mov">${esc(a.mov)}</div>
-        <div class="cli">${esc(a.cliente)}</div>
-        <div class="meta">${esc(a.colab)}${a.nf?' | '+esc(a.nf):''}</div>
-        <div class="relogio" data-start="${esc(a.data)}T${esc(a.hi)}">--:--:--</div>
-        <div class="meta">Início ${dataBR(a.data)} às ${esc(a.hi.slice(0,5))}</div>
-        <div class="rod">
-          <button class="btn btn-txt" onclick="cancelarAnd('${esc(a.id)}')">Cancelar</button>
-          <button class="btn btn-nav" onclick="abrirForm('finalizar','${esc(a.id)}')">Finalizar</button>
-        </div>
-      </article>`).join('')}</div>`
-    : `<div class="vazio">Nenhuma operação em andamento. Toque em <b>Iniciar operação</b> quando começar um recebimento ou separação.</div>`}
-  </section>
-
-  <section class="secao">
-    <h2>Pedidos aguardando retirada<small>${ret.length?ret.length+' pedido'+(ret.length>1?'s':''):''}</small></h2>
-    ${ret.length ? `<div class="cards-and">${ret.map(r=>`
-      <article class="and ret">
-        <div class="mov">Separado | aguardando retirada</div>
-        <div class="cli">${esc(r.cliente)}</div>
-        <div class="meta">${esc(r.nf||'Sem nº de pedido')} | ${nf(r.vol)} vol.${r.pal?' | '+nf(Math.abs(r.pal))+' pallet'+(Math.abs(r.pal)>1?'s':''):''}</div>
-        <div class="relogio md" data-start="${isoLocal(fimSeparacao(r))}" data-fmt="espera" data-lim="86400">--:--:--</div>
-        <div class="meta">Separado por ${esc(r.colab)} em ${dataBR(r.data)} às ${esc(r.hf.slice(0,5))}</div>
-        <div class="rod">
-          <button class="btn btn-txt" style="color:var(--navy)" onclick="abrirRegistro('${esc(r.id)}')">Detalhes</button>
-          <button class="btn btn-pri" onclick="abrirEntrega('${esc(r.id)}')">Registrar entrega</button>
-        </div>
-      </article>`).join('')}</div>`
-    : `<div class="vazio">Nenhum pedido aguardando retirada. Toda separação de pedido nova entra aqui até a entrega ser registrada.</div>`}
-  </section>
-
-  <section class="secao">
-    <h2>Concluídas hoje<small>${concl.length}</small></h2>
-    ${concl.length ? `<div class="lista-hoje">${concl.map(r=>`
-      <div class="lh" onclick="abrirRegistro('${esc(r.id)}')">
-        <div class="h">${esc(r.hi.slice(0,5))} a ${esc(r.hf.slice(0,5))}</div>
-        <div class="c">${esc(r.cliente)} ${tagEnt(r)}</div>
-        <div class="h">${esc(r.mov)} | ${esc(r.colab)}</div>
-        <div class="t">${fmtDurCurto(dur(r.hi,r.hf))}</div>
-      </div>`).join('')}</div>`
-    : `<div class="vazio">Nada lançado hoje ainda.</div>`}
-  </section>`;
-}
-
-async function cancelarAnd(id){
-  const a = S.d.andamento.find(x=>x.id===id);
-  if(!a || !confirm(`Cancelar a operação de ${a.cliente} (${a.mov})?\nEla será descartada sem gerar lançamento.`)) return;
-  try{ await api('cancelarAndamento',{id}); render(); toast('Operação cancelada.'); }catch(e){ toast(e.message,true); }
-}
-
-/* ══════════ LANÇAMENTOS ══════════ */
-function filtrados(){
-  const f=S.f, q=f.q.trim().toUpperCase();
-  return S.d.registros.filter(r =>
-    (!f.de || r.data>=f.de) && (!f.ate || r.data<=f.ate) &&
-    (!f.cliente || r.cliente===f.cliente) && (!f.mov || r.mov===f.mov) && (!f.colab || r.colab===f.colab) &&
-    (!f.ent || r.stEnt===f.ent) &&
-    (!q || (r.nf+' '+r.obs+' '+r.cliente+' '+(r.entPor||'')+' '+(r.entObs||'')).toUpperCase().includes(q))
-  ).sort((a,b)=> (b.data+b.hi).localeCompare(a.data+a.hi));
-}
-const unicos = campo => [...new Set(S.d.registros.map(r=>r[campo]).filter(Boolean))].sort();
-const optList = (lista, sel, vazio) => `<option value="">${vazio}</option>`+lista.map(v=>`<option ${v===sel?'selected':''}>${esc(v)}</option>`).join('');
-
-function vLancamentos(){
-  const L = filtrados(), f=S.f;
-  const soma = k => L.reduce((s,r)=>s+(r[k]||0),0);
-  const div = L.filter(r=>r.div==='SIM').length;
-  const LIM = 400;
-  return `
-  <div class="filtros">
-    <label class="f">De<input class="in" type="date" value="${f.de}" onchange="S.f.de=this.value;render()"></label>
-    <label class="f">Até<input class="in" type="date" value="${f.ate}" onchange="S.f.ate=this.value;render()"></label>
-    <label class="f">Cliente<select class="in" onchange="S.f.cliente=this.value;render()">${optList(unicos('cliente'),f.cliente,'Todos')}</select></label>
-    <label class="f">Movimento<select class="in" onchange="S.f.mov=this.value;render()">${optList(unicos('mov'),f.mov,'Todos')}</select></label>
-    <label class="f">Colaborador<select class="in" onchange="S.f.colab=this.value;render()">${optList(unicos('colab'),f.colab,'Todos')}</select></label>
-    <label class="f">Entrega<select class="in" onchange="S.f.ent=this.value;render()">
-      <option value="">Todos</option><option value="${ST_AG}" ${f.ent===ST_AG?'selected':''}>Aguardando retirada</option><option value="${ST_EN}" ${f.ent===ST_EN?'selected':''}>Entregue</option></select></label>
-    <label class="f">Buscar<input class="in" id="busca" value="${esc(f.q)}" placeholder="Ex.: PED 0387"></label>
-  </div>
-  <div class="resumo">
-    <span><b>${nf(L.length)}</b>lançamentos</span>
-    <span><b>${nf(soma('vol'))}</b>volumes</span>
-    <span><b>${nf(soma('un'))}</b>unidades</span>
-    <span><b>${nf(soma('pal'))}</b>pallets (saldo)</span>
-    <span><b>${nf(div)}</b>com divergência</span>
-  </div>
-  <div class="barra" style="margin:0 0 12px">
-    <button class="btn-sec btn" onclick="limparFiltros()">Limpar filtros</button>
-    <div style="display:flex;gap:10px">
-      <button class="btn btn-sec" onclick="exportarCSV()">Exportar para Excel</button>
-      <button class="btn btn-pri" onclick="abrirForm('novo')">Novo lançamento</button>
+  <div class="scan">
+    <label class="scan-box" id="scanBox" for="scanIn">
+      <span class="scan-state" id="scanState"><i></i><span id="scanStateTxt">Coletor pronto · aperte o gatilho</span></span>
+      <input id="scanIn" inputmode="none" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="Aguardando leitura…" aria-label="Código lido pelo coletor">
+    </label>
+    <div class="alt">
+      <button class="btn btn-ghost" id="btnKb" type="button" aria-pressed="false">Digitar</button>
+      <button class="btn btn-ghost" id="btnCam" type="button" aria-pressed="false">Câmera</button>
+      <label class="btn btn-ghost">Foto<input id="photoIn" type="file" accept="image/*" capture="environment" hidden></label>
     </div>
   </div>
-  ${L.length ? `<div class="tab-wrap"><table class="t">
-    <thead><tr><th>Data</th><th>Início</th><th>Fim</th><th class="n">Tempo</th><th>Cliente</th><th>Movimento</th><th>Colaborador</th><th>NF / DI / PED</th><th class="n">SKU</th><th class="n">Vol.</th><th class="n">Unid.</th><th class="n">Pallets</th><th>Diverg.</th><th>Entrega</th></tr></thead>
-    <tbody>${L.slice(0,LIM).map(r=>`<tr onclick="abrirRegistro('${esc(r.id)}')">
-      <td data-l="Data">${dataBR(r.data)}</td><td data-l="Início">${esc(r.hi.slice(0,5))}</td><td data-l="Fim">${esc(r.hf.slice(0,5))}</td>
-      <td class="n" data-l="Tempo">${fmtDur(dur(r.hi,r.hf)).slice(0,5)}</td>
-      <td class="cli" data-l="Cliente">${esc(r.cliente)}</td><td data-l="Movimento">${esc(r.mov)}</td><td data-l="Colaborador">${esc(r.colab)}</td><td data-l="NF/DI/PED">${esc(r.nf)}</td>
-      <td class="n" data-l="SKU">${nf(r.sku)}</td><td class="n" data-l="Volumes">${nf(r.vol)}</td><td class="n" data-l="Unidades">${nf(r.un)}</td><td class="n" data-l="Pallets">${nf(r.pal)}</td>
-      <td data-l="Divergência"><span class="tag ${r.div==='SIM'?'bad':'ok'}">${r.div==='SIM'?'Sim':'Não'}</span></td>
-      <td data-l="Entrega">${r.stEnt===ST_EN?`<span class="tag ok">${dataBR(r.entData).slice(0,5)} ${esc((r.entHora||'').slice(0,5))}</span>`:r.stEnt===ST_AG?'<span class="tag ag">Aguardando</span>':'-'}</td>
-    </tr>`).join('')}</tbody></table></div>
-    ${L.length>LIM?`<p class="nota">Mostrando os ${LIM} mais recentes de ${nf(L.length)}. Use os filtros para refinar; a exportação inclui todos.</p>`:''}`
-  : `<div class="vazio">Nenhum lançamento para esses filtros.</div>`}`;
-}
-function limparFiltros(){ S.f={ de:'', ate:'', cliente:'', mov:'', colab:'', ent:'', q:'' }; render(); }
 
-function exportarCSV(){
-  const L = filtrados();
-  const cab = ['DATA','HORA INICIAL','HORA FINAL','TEMPO','CLIENTE','MOVIMENTO','COLABORADOR','NF/ DI/ PED','QTD DE SKU','QTD DE VOLUMES','QTD DE UNIDADES','QTD DE PALLETS','DIVERGENCIA','OBSERVAÇÕES','LANÇADO POR','STATUS ENTREGA','ENTREGUE POR','DATA ENTREGA','HORA ENTREGA','OBS ENTREGA'];
-  const q = v => { const s=String(v==null?'':v); return /[;"\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
-  const linhas = L.map(r=>[dataBR(r.data),r.hi,r.hf,fmtDur(dur(r.hi,r.hf)),r.cliente,r.mov,r.colab,r.nf,r.sku,r.vol,r.un,r.pal,r.div,r.obs,r.email,r.stEnt,r.entPor,dataBR(r.entData),r.entHora,r.entObs].map(q).join(';'));
-  const blob = new Blob(['\ufeff'+[cab.join(';')].concat(linhas).join('\r\n')], {type:'text/csv;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download=`movimentacao_estoque_${(S.f.de||'inicio')}_a_${(S.f.ate||'hoje')}.csv`; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
-}
-
-/* ══════════ PAINEL ══════════ */
-function vPainel(){
-  const p=S.p;
-  const R = S.d.registros.filter(r => r.data.slice(0,7)===p.mes && (!p.cliente || r.cliente===p.cliente));
-  const ent = R.filter(r=>ehEntrada(r.mov)), sep = R.filter(r=>ehSeparacao(r.mov));
-  const media = L => { const t=L.map(r=>dur(r.hi,r.hf)).filter(x=>x!=null); return t.length ? t.reduce((a,b)=>a+b,0)/t.length : null; };
-  const div = R.filter(r=>r.div==='SIM').length;
-  const efic = R.length ? (1-div/R.length)*100 : null;
-  const palE = R.reduce((s,r)=>s+(r.pal>0?r.pal:0),0), palS = R.reduce((s,r)=>s+(r.pal<0?-r.pal:0),0);
-
-  const agrupa = (campo) => {
-    const m={}; R.forEach(r=>{ const k=r[campo]||'(sem)'; m[k]=m[k]||{n:0,t:0}; m[k].n++; m[k].t+=dur(r.hi,r.hf)||0; });
-    return Object.entries(m).map(([k,v])=>({k,n:v.n,t:v.t})).sort((a,b)=>b.n-a.n);
-  };
-  const barras = (lista, val, txt, cls='') => { const max=Math.max(1,...lista.map(val)); return lista.map(x=>`
-    <div class="bar ${cls}"><span class="nm" title="${esc(x.k)}">${esc(x.k)}</span><span class="tr"><span class="fl" style="width:${(val(x)/max*100).toFixed(1)}%"></span></span><span class="vl">${txt(x)}</span></div>`).join(''); };
-
-  const porCli = agrupa('cliente'), porCol = agrupa('colab'), porMov = agrupa('mov');
-
-  // ocupação (aba OCUPAÇÃO X VALOR)
-  let ocu = '';
-  const O = S.d.ocupacao, mi = +p.mes.slice(5,7)-1;
-  if(O && O.linhas){
-    const L = O.linhas.map(l=>({k:l.cliente, v:l.valores[mi]})).filter(x=>x.v!=null && (!p.cliente||x.k===p.cliente)).sort((a,b)=>b.v-a.v);
-    const tot = L.reduce((s,x)=>s+x.v,0);
-    ocu = `<div class="bloco"><h3>Pallets em estoque no mês (${nf(tot)})</h3>${L.length?barras(L,x=>x.v,x=>nf(x.v),'lar'):'<p class="nota">Ocupação deste mês ainda não lançada na aba OCUPAÇÃO X VALOR.</p>'}</div>`;
-  }
-  const meses = [...new Set(S.d.registros.map(r=>r.data.slice(0,7)).filter(Boolean))].sort().reverse();
-  if(!meses.includes(p.mes)) meses.unshift(p.mes);
-  const nomeMes = m => { const [a,b]=m.split('-'); return ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][+b-1]+' '+a; };
-
-  return `
-  <div class="filtros" style="grid-template-columns:repeat(auto-fit,minmax(200px,260px))">
-    <label class="f">Mês<select class="in" onchange="S.p.mes=this.value;render()">${meses.map(m=>`<option value="${m}" ${m===p.mes?'selected':''}>${nomeMes(m)}</option>`).join('')}</select></label>
-    <label class="f">Cliente<select class="in" onchange="S.p.cliente=this.value;render()">${optList(unicos('cliente'),p.cliente,'Todos')}</select></label>
-  </div>
-  <div class="kpis">
-    <div class="kpi dest"><div class="v">${nf(R.length)}</div><div class="l">Operações no mês</div></div>
-    <div class="kpi"><div class="v">${fmtDur(media(ent))}</div><div class="l">Tempo médio de recebimento (${ent.length})</div></div>
-    <div class="kpi"><div class="v">${fmtDur(media(sep))}</div><div class="l">Tempo médio de separação (${sep.length})</div></div>
-    <div class="kpi"><div class="v">${efic==null?'-':efic.toFixed(1).replace('.',',')+'%'}</div><div class="l">Eficiência (${div} com divergência)</div></div>
-    <div class="kpi"><div class="v">${nf(R.reduce((s,r)=>s+r.vol,0))}</div><div class="l">Volumes movimentados</div></div>
-    <div class="kpi"><div class="v">${nf(R.reduce((s,r)=>s+r.un,0))}</div><div class="l">Unidades movimentadas</div></div>
-    <div class="kpi"><div class="v">${nf(palE)} / ${nf(palS)}</div><div class="l">Pallets entrada / saída</div></div>
-    <div class="kpi"><div class="v">${nf(aguardando().filter(r=>!p.cliente||r.cliente===p.cliente).length)}</div><div class="l">Aguardando retirada agora</div></div>
-    <div class="kpi"><div class="v">${(()=>{ const t=sep.map(tempoRetirada).filter(x=>x!=null&&x>=0); return t.length?fmtEspera(t.reduce((a,b)=>a+b,0)/t.length).replace(/:\d\d$/,''):'-'; })()}</div><div class="l">Tempo médio da separação à retirada</div></div>
-  </div>
-  ${R.length?`
-  <div class="grade2">
-    <div class="bloco"><h3>Operações por cliente</h3>${barras(porCli,x=>x.n,x=>nf(x.n))}</div>
-    <div class="bloco"><h3>Operações por colaborador</h3>${barras(porCol,x=>x.n,x=>nf(x.n)+' | '+fmtDurCurto(x.t))}</div>
-    <div class="bloco"><h3>Por tipo de movimento</h3>
-      <div class="tab-wrap" style="box-shadow:none"><table class="t"><thead><tr><th>Movimento</th><th class="n">Total</th><th class="n">Tempo total</th><th class="n">Média</th></tr></thead>
-      <tbody>${porMov.map(x=>`<tr style="cursor:default"><td class="cli" data-l="Movimento">${esc(x.k)}</td><td class="n" data-l="Total">${nf(x.n)}</td><td class="n" data-l="Tempo total">${fmtDur(x.t)}</td><td class="n" data-l="Média">${fmtDur(x.t/x.n)}</td></tr>`).join('')}</tbody></table></div>
+  <div class="cam" id="camBox">
+    <div id="reader"></div>
+    <div class="frame" id="frame"></div>
+    <div class="cam-tools">
+      <button id="btnTorch" class="hidden" type="button">Lanterna</button>
     </div>
-    ${ocu}
-  </div>` : `<div class="vazio" style="margin-top:14px">Sem lançamentos neste mês.</div>${ocu?'<div class="grade2">'+ocu+'</div>':''}`}`;
+    <div class="cam-msg" id="camMsg">
+      <p id="camMsgTxt">Abrindo câmera…</p>
+      <button class="btn btn-primary" id="btnCamRetry" type="button">Tentar de novo</button>
+    </div>
+  </div>
+
+  <div class="pending" id="pendBox">
+    <div class="pv"><span>Serial lido, aguardando etiqueta</span><b id="pendVal">—</b></div>
+    <button class="btn btn-ghost" id="btnRedo" type="button" style="min-height:42px">Refazer</button>
+  </div>
+
+  <div class="last" id="lastBox" aria-live="polite"></div>
+
+  <div class="list-head"><h2>Pares lidos</h2><span id="rdStart"></span></div>
+  <ul class="pairs" id="pairList"></ul>
+
+  <div class="dock">
+    <button class="btn btn-ghost" id="btnPause" type="button">Pausar</button>
+    <button class="btn btn-navy" id="btnFinish" type="button">Terminar</button>
+  </div>
+</section>
+
+<!-- ============ TELA 3: RESUMO / EXPORTAR ============ -->
+<section class="screen" id="scrEnd" aria-label="Resumo">
+  <header class="bar">
+    <div class="brand">PORTOEX<small>Conferência finalizada</small></div>
+  </header>
+  <div class="wrap">
+    <div class="note hidden" id="enNote"></div>
+    <div class="sum">
+      <div class="card"><span>Movimento</span><b id="enMov">—</b></div>
+      <div class="card"><span id="enCountLbl">Pares</span><b id="enCount">0</b></div>
+      <div class="card wide"><span>Período</span><div id="enPeriod" style="font-weight:600;margin-top:4px">—</div></div>
+    </div>
+
+    <h2 class="sec-title">Resumo por NF-e</h2>
+    <div class="card" style="padding:4px 14px"><ul class="nfsum" id="enNf"></ul></div>
+
+    <h2 class="sec-title">Listagem</h2>
+    <div class="seg" role="group" aria-label="Ordenação da listagem">
+      <button type="button" data-s="leitura" aria-pressed="false">Ordem de leitura</button>
+      <button type="button" data-s="vol" aria-pressed="true">NF-e + Volume</button>
+    </div>
+    <p class="hint">Em "NF-e + Volume" os volumes ficam em sequência e as faltas aparecem destacadas entre as linhas. A ordenação escolhida vale também para o PDF e o Excel.</p>
+    <div class="tbl-wrap"><table><thead id="enHead"></thead><tbody id="enBody"></tbody></table></div>
+
+    <h2 class="sec-title">Exportar (A4)</h2>
+    <div class="seg" role="group" aria-label="Formato do arquivo">
+      <button type="button" data-f="p" aria-pressed="true">PDF</button>
+      <button type="button" data-f="x" aria-pressed="false">Excel</button>
+    </div>
+    <div class="seg mt" role="group" aria-label="Orientação da folha">
+      <button type="button" data-o="p" aria-pressed="true"><svg width="14" height="18" viewBox="0 0 14 18"><rect x="1" y="1" width="12" height="16" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>Retrato</button>
+      <button type="button" data-o="l" aria-pressed="false"><svg width="18" height="14" viewBox="0 0 18 14"><rect x="1" y="1" width="16" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>Paisagem</button>
+    </div>
+    <div class="row2 mt">
+      <button class="btn btn-navy" id="btnDown" type="button">Baixar arquivo</button>
+      <button class="btn btn-wa" id="btnWa" type="button"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.6.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.3 2.2 2.2 0 0 0 .1-1.3c0-.1-.2-.2-.4-.3z"/></svg>WhatsApp</button>
+    </div>
+
+
+    <div class="row2 mt">
+      <button class="btn btn-ghost" id="btnReopen" type="button">Continuar lendo</button>
+      <button class="btn btn-ghost" id="btnNew" type="button">Novo movimento</button>
+    </div>
+    <button class="btn btn-ghost btn-block mt" id="btnRen" type="button">Editar nome do movimento</button>
+    <button class="del-mov" id="btnDelMov" type="button">Excluir este movimento</button>
+  </div>
+</section>
+
+<!-- ============ TELA: EXPORTAR VÁRIOS ============ -->
+<section class="screen" id="scrSel" aria-label="Exportar vários movimentos">
+  <header class="bar">
+    <div class="brand">PORTOEX<small>Exportar vários movimentos</small></div>
+  </header>
+  <div class="wrap">
+    <p class="hint" style="margin-top:4px">Marque os movimentos que devem sair juntos no mesmo PDF, Excel ou WhatsApp.</p>
+    <div class="row2 mt">
+      <button class="btn btn-ghost" id="selAll" type="button">Marcar todos</button>
+      <button class="btn btn-ghost" id="selNone" type="button">Desmarcar</button>
+    </div>
+    <div class="card mt" style="padding:4px 14px"><div id="selList"></div></div>
+    <button class="btn btn-primary btn-block mt" id="selGo" type="button" disabled>Exportar selecionados (0)</button>
+    <button class="btn btn-ghost btn-block mt" id="selBack" type="button" style="margin-bottom:28px">Voltar</button>
+  </div>
+</section>
+
+<!-- overlay genérico -->
+<div class="overlay" id="ov" role="dialog" aria-modal="true" aria-labelledby="ovTitle">
+  <div class="sheet">
+    <h3 id="ovTitle"></h3>
+    <p id="ovText"></p>
+    <input id="ovIn" class="ov-in hidden" type="text" name="px-conf" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-form-type="other" placeholder="Senha" aria-label="Senha">
+    <div class="stack" id="ovBtns"></div>
+  </div>
+</div>
+<div class="flash" id="flash"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id);
+const K_CUR = 'px_leitor_atual', K_HIST = 'px_leitor_hist';
+
+/* ---------- armazenamento ---------- */
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+};
+
+let S = null;           // sessão atual {id, mov, started, finished, pairs[], pending, status}
+let orient = 'p', ffmt = 'p', sortMode = 'vol', newMode = 'par';
+const isUni = () => !!(S && S.mode === 'uni');
+const unitLbl = m => (m && m.mode === 'uni') ? 'leituras' : 'pares';
+const PASS_HASH = 'ecf6387852f87cb5b2327b541fb7c933e2dd42d17d34e9947a0ad2cedefc42cb'; // SHA-256 da senha de exclusão
+async function checkPass(v){
+  try{
+    const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v));
+    return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2,'0')).join('') === PASS_HASH;
+  }catch(e){ return false; }
 }
 
-/* ══════════ CADASTROS ══════════ */
-const CAD_NOMES = {clientes:'Clientes', colaboradores:'Colaboradores', movimentos:'Movimentos', observacoes:'Observações', usuarios:'Usuários'};
-function vCadastros(){
-  if(!isAdmin()) return '<div class="vazio">Acesso restrito a administradores.</div>';
-  const seg = `<div class="seg">${Object.entries(CAD_NOMES).map(([k,v])=>`<button aria-pressed="${S.cad===k}" onclick="S.cad='${k}';render();${k==='usuarios'?'carregarUsuarios()':''}">${v}</button>`).join('')}</div>`;
-  if(S.cad==='usuarios') return seg + vUsuarios();
-  const lista = (S.d.listas[S.cad]||[]).slice().sort((a,b)=> (b.ativo-a.ativo) || a.nome.localeCompare(b.nome));
-  return seg + `
-  <form class="add" onsubmit="event.preventDefault();cadAdd(this)">
-    <input class="in" name="nome" placeholder="Novo item em ${CAD_NOMES[S.cad].toLowerCase()}" required ${S.cad!=='observacoes'?'style="text-transform:uppercase"':''}>
-    <button class="btn btn-pri" type="submit">Adicionar</button>
-  </form>
-  <p class="nota">Itens inativos deixam de aparecer nos formulários, mas continuam nos lançamentos antigos.</p>
-  <div class="cad">${lista.length?lista.map(x=>`
-    <div class="cad-l ${x.ativo?'':'inativo'}">
-      <span class="nm">${esc(x.nome)}</span>
-      <span class="tag ${x.ativo?'ok':'off'}">${x.ativo?'Ativo':'Inativo'}</span>
-      <button class="mini" data-n="${esc(x.nome)}" onclick="cadRenomear(this.dataset.n)">Renomear</button>
-      <button class="mini" data-n="${esc(x.nome)}" onclick="cadAlternar(this.dataset.n,${!x.ativo})">${x.ativo?'Desativar':'Ativar'}</button>
-    </div>`).join(''):'<div class="cad-l"><span class="nm">Nenhum item cadastrado.</span></div>'}</div>`;
+/* ---------- ETIQUETA INTERNA ----------
+   Exemplo: 0562190000122280430400007600392 (31 dígitos)
+   posições (a partir de 1): 7-15 NF-e · 16-21 código interno (varia) · 22-26 volume · 27-31 total de volumes da NF-e
+   Se o layout da etiqueta mudar, ajuste só este bloco. */
+const ETQ = { len:31, nfe:[6,15], vol:[21,26], tot:[26,31] };
+function parseEtq(c){
+  if(!/^\d+$/.test(c) || c.length !== ETQ.len) return null;
+  const g = r => parseInt(c.slice(r[0], r[1]), 10);
+  return { nfe:g(ETQ.nfe), vol:g(ETQ.vol), tot:g(ETQ.tot) };
 }
-async function cadSalvar(item, msg){
-  try{ await api('cadSalvar',{tipo:S.cad,item}); render(); toast(msg); }catch(e){ toast(e.message,true); }
-}
-function cadAdd(form){
-  const nome = form.nome.value.trim(); if(!nome) return;
-  const b=form.querySelector('button'); b.disabled=true; b.textContent='Salvando…';
-  cadSalvar({nome, ativo:true}, `"${S.cad==='observacoes'?nome:nome.toUpperCase()}" adicionado.`);
-}
-function cadRenomear(antigo){
-  const novo = prompt('Novo nome para "'+antigo+'":', antigo); if(!novo || novo.trim()===antigo) return;
-  const item = (S.d.listas[S.cad]||[]).find(x=>x.nome===antigo);
-  if(!confirm('Renomear altera só o cadastro. Os lançamentos antigos continuam com "'+antigo+'". Continuar?')) return;
-  cadSalvar({nome:novo.trim(), nomeAntigo:antigo, ativo:item?item.ativo:true}, 'Nome atualizado.');
-}
-function cadAlternar(nome, ativo){ cadSalvar({nome, nomeAntigo:nome, ativo}, ativo?'Item ativado.':'Item desativado.'); }
+const info = p => (p.nfe != null ? p : (parseEtq(p.etiqueta) || {}));
+const volTxt = i => i.vol != null ? i.vol + '/' + i.tot : '—';
+const save = () => { if(S && S.status !== 'done' && !S.remote) store.set(K_CUR, S); };
 
-async function carregarUsuarios(){
-  try{ const j = await api('usuarios'); S.usuarios=j.usuarios; if(S.tab==='cadastros'&&S.cad==='usuarios') render(); }
-  catch(e){ toast(e.message,true); }
-}
-function vUsuarios(){
-  if(!S.usuarios) return '<div class="carregando">Carregando usuários…</div>';
-  return `
-  <div class="barra" style="margin:0 0 12px"><span class="nota" style="margin:0">Operadores lançam e finalizam operações. Administradores também editam, excluem e mantêm os cadastros.</span>
-  <button class="btn btn-pri" onclick="abrirUsuario()">Novo usuário</button></div>
-  <div class="cad">${S.usuarios.map(u=>`
-    <div class="cad-l ${u.ativo?'':'inativo'}">
-      <span class="nm"><b>${esc(u.usuario)}</b> <span class="dica">${esc(u.nome)}</span></span>
-      <span class="tag ${u.perfil==='ADMIN'?'bad':'off'}">${u.perfil==='ADMIN'?'Administrador':'Operador'}</span>
-      <span class="tag ${u.ativo?'ok':'off'}">${u.ativo?'Ativo':'Inativo'}</span>
-      <button class="mini" onclick="abrirUsuario('${esc(u.usuario)}')">Editar</button>
-    </div>`).join('')}</div>`;
-}
-function abrirUsuario(login){
-  const u = login ? S.usuarios.find(x=>x.usuario===login) : {usuario:'',nome:'',perfil:'OPERADOR',ativo:true};
-  abrirModal(login?'Editar usuário':'Novo usuário', `
-    <form id="fUsu" class="form">
-      <label class="f"><span>Usuário (login)<em>*</em></span><input class="in" name="usuario" value="${esc(u.usuario)}" ${login?'disabled':''} required style="text-transform:uppercase"></label>
-      <label class="f">Nome<input class="in" name="nome" value="${esc(u.nome)}"></label>
-      <label class="f"><span>Senha ${login?'<span class="dica">(em branco mantém a atual)</span>':'<em>*</em>'}</span><input class="in" name="senha" type="text" autocomplete="off" ${login?'':'required'}></label>
-      <label class="f">Perfil<select class="in" name="perfil"><option value="OPERADOR" ${u.perfil!=='ADMIN'?'selected':''}>Operador</option><option value="ADMIN" ${u.perfil==='ADMIN'?'selected':''}>Administrador</option></select></label>
-      <label class="chk full"><input type="checkbox" name="ativo" ${u.ativo?'checked':''}> Usuário ativo (pode entrar no app)</label>
-    </form><div id="fErro"></div>`,
-    `<button class="btn btn-sec" onclick="fecharModal()">Cancelar</button><button class="btn btn-pri" id="bOk">Salvar usuário</button>`);
-  $('#bOk').onclick = async () => {
-    const f=$('#fUsu'); if(!f.reportValidity()) return;
-    const item={usuario:login||f.usuario.value, nome:f.nome.value.trim(), senha:f.senha.value, perfil:f.perfil.value, ativo:f.ativo.checked};
-    await enviar($('#bOk'), async()=>{ await api('usuSalvar',{item}); await carregarUsuarios(); }, 'Usuário salvo.');
-  };
-}
+const fmt = ts => ts ? new Date(ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '—';
+const fmtShort = ts => new Date(ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-/* ══════════ FORMULÁRIO DE OPERAÇÃO ══════════ */
-const OBS_AUTO = { entrada:'Material recebido sem divergência.', separacao:'Pedido separado sem divergência.' };
-const obsPadrao = mov => ehEntrada(mov) ? OBS_AUTO.entrada : ehSeparacao(mov) ? OBS_AUTO.separacao : '';
-
-function selectCad(name, tipo, valor, dis){
-  const lista = ativos(tipo);
-  if(valor && !lista.includes(valor)) lista.unshift(valor);
-  return `<select class="in" name="${name}" required ${dis?'disabled':''}><option value="">Selecione</option>${lista.map(v=>`<option ${v===valor?'selected':''}>${esc(v)}</option>`).join('')}</select>`;
+/* ---------- feedback ---------- */
+let audioCtx;
+function beep(ok){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = 'square'; o.frequency.value = ok ? 1560 : 280;
+    g.gain.value = .12; o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + (ok ? .09 : .35));
+  }catch(e){}
+  try{ navigator.vibrate && navigator.vibrate(ok ? 60 : [120,60,120]); }catch(e){}
 }
-function camposInicio(r, dis){
-  return `
-    <label class="f"><span>Data<em>*</em></span><input class="in" type="date" name="data" value="${esc(r.data)}" required ${dis?'disabled':''}></label>
-    <label class="f"><span>Hora inicial<em>*</em></span><input class="in" type="time" step="1" name="hi" value="${esc(r.hi)}" required ${dis?'disabled':''}></label>
-    <label class="f wm"><span>Cliente<em>*</em></span>${selectCad('cliente','clientes',r.cliente,dis)}</label>
-    <label class="f wm"><span>Movimento<em>*</em></span>${selectCad('mov','movimentos',r.mov,dis)}</label>
-    <label class="f wm"><span>Colaborador<em>*</em></span>${selectCad('colab','colaboradores',r.colab,dis)}</label>
-    <label class="f wm">NF / DI / PED<input class="in" name="nf" value="${esc(r.nf)}" placeholder="Ex.: NF 12228 ou PED 0387" ${dis?'disabled':''}></label>`;
+function flash(ok){
+  const f = $('flash'); f.className = 'flash'; void f.offsetWidth; f.className = 'flash ' + (ok ? 'ok' : 'err');
 }
-function camposFim(r, dis){
-  const num = (n,l,v,extra='') => `<label class="f"><span>${l}<em>*</em></span><input class="in" type="number" inputmode="numeric" step="1" name="${n}" value="${v==null?0:v}" required ${extra} ${dis?'disabled':''}></label>`;
-  return `
-    ${num('sku','Qtd. de SKU',r.sku,'min="0"')}
-    ${num('vol','Qtd. de volumes',r.vol,'min="0"')}
-    ${num('un','Qtd. de unidades',r.un,'min="0"')}
-    <label class="f"><span>Qtd. de pallets<em>*</em></span><input class="in" type="number" inputmode="numeric" step="1" name="pal" value="${r.pal==null?0:r.pal}" required ${dis?'disabled':''}><span class="dica">Negativo = saída</span></label>
-    <label class="f"><span>Hora final<em>*</em></span><input class="in" type="time" step="1" name="hf" value="${esc(r.hf)}" required ${dis?'disabled':''}></label>
-    <div class="f" style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;justify-content:flex-end">Tempo realizado<span class="tempo" id="tempoForm">--:--:--</span></div>
-    <div class="f full" style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600">Divergência
-      <div class="sn" role="radiogroup" aria-label="Divergência">
-        <label><input type="radio" name="div" value="NÃO" ${r.div!=='SIM'?'checked':''} ${dis?'disabled':''}>Não</label>
-        <label class="sim"><input type="radio" name="div" value="SIM" ${r.div==='SIM'?'checked':''} ${dis?'disabled':''}>Sim</label>
-      </div></div>
-    <label class="f full">Observações <span class="dica" id="obsDica"></span>
-      <input class="in" name="obs" list="dlObs" value="${esc(r.obs)}" ${dis?'disabled':''}>
-      <datalist id="dlObs">${ativos('observacoes').map(o=>`<option value="${esc(o)}">`).join('')}</datalist></label>`;
+let tT;
+function toast(msg, kind){
+  const t = $('toast'); t.textContent = msg; t.className = 'toast on ' + (kind || '');
+  clearTimeout(tT); tT = setTimeout(() => t.className = 'toast', kind === 'err' ? 3200 : 2000);
 }
-
-function abrirForm(modo, id){
-  const agora=agoraHora(), hoje=hojeISO();
-  let r, titulo, corpo, rodape;
-  if(modo==='iniciar'){
-    r={data:hoje, hi:agora};
-    titulo='Iniciar operação';
-    corpo=`<form id="fOp" class="form">${camposInicio(r)}</form>`;
-    rodape=`<button class="btn btn-sec" onclick="fecharModal()">Voltar</button><button class="btn btn-pri" id="bOk">▶ Iniciar agora</button>`;
-  } else if(modo==='finalizar'){
-    const a=S.d.andamento.find(x=>x.id===id); if(!a){ toast('Operação não encontrada. Atualize os dados.',true); return; }
-    r=Object.assign({}, a, {hf:agora, sku:0, vol:0, un:0, pal:0, div:'NÃO', obs:obsPadrao(a.mov)});
-    titulo='Finalizar operação';
-    corpo=`<div class="resumo-op"><div class="cli">${esc(a.cliente)}</div><div class="meta">${esc(a.mov)} | ${esc(a.colab)}${a.nf?' | '+esc(a.nf):''}<br>Início ${dataBR(a.data)} às ${esc(a.hi)}</div></div>
-      <form id="fOp" class="form"><input type="hidden" name="hi" value="${esc(a.hi)}"><input type="hidden" name="mov" value="${esc(a.mov)}">${camposFim(r)}</form>`;
-    rodape=`<button class="btn btn-sec" onclick="fecharModal()">Voltar</button><button class="btn btn-nav" id="bOk">Finalizar e salvar</button>`;
-  } else if(modo==='novo'){
-    r={data:hoje, hi:'', hf:agora, sku:0, vol:0, un:0, pal:0, div:'NÃO', obs:''};
-    titulo='Lançar operação concluída';
-    corpo=`<form id="fOp" class="form">${camposInicio(r)}${camposFim(r)}</form>`;
-    rodape=`<button class="btn btn-sec" onclick="fecharModal()">Cancelar</button><button class="btn btn-pri" id="bOk">Salvar lançamento</button>`;
-  } else { // editar ou ver
-    r=S.d.registros.find(x=>x.id===id); if(!r){ toast('Registro não encontrado. Atualize os dados.',true); return; }
-    const dis = modo==='ver';
-    titulo = dis ? 'Lançamento' : 'Editar lançamento';
-    corpo=`<form id="fOp" class="form">${camposInicio(r,dis)}${camposFim(r,dis)}</form>
-      ${r.ts?`<p class="nota">Lançado em ${esc(r.ts)}${r.email?' por '+esc(r.email):''}.</p>`:''}${blocoEntrega(r)}`;
-    rodape = dis ? `<button class="btn btn-sec" onclick="fecharModal()">Fechar</button>`
-      : `<button class="btn btn-del esq" id="bDel">Excluir</button><button class="btn btn-sec" onclick="fecharModal()">Cancelar</button><button class="btn btn-pri" id="bOk">Salvar alterações</button>`;
-  }
-  abrirModal(titulo, corpo+'<div id="fErro"></div>', rodape);
-  const f=$('#fOp');
-  const atualizaTempo = () => { const t=$('#tempoForm'); if(t && f.hi && f.hf) t.textContent=fmtDur(dur(f.hi.value,f.hf.value)); };
-  const atualizaObs = () => {
-    if(!f.obs) return;
-    const d = f.querySelector('input[name=div]:checked')?.value;
-    const mov = f.mov ? f.mov.value : '';
-    const auto = Object.values(OBS_AUTO).includes(f.obs.value.trim());
-    if(d==='NÃO' && (!f.obs.value.trim() || auto)) f.obs.value = obsPadrao(mov);
-    if(d==='SIM' && auto) f.obs.value='';
-    $('#obsDica').textContent = d==='SIM' ? '(obrigatório: descreva a divergência)' : '';
-  };
-  f.addEventListener('input', e => { if(e.target.name==='hi'||e.target.name==='hf') atualizaTempo(); });
-  f.addEventListener('change', e => { if(e.target.name==='div'||e.target.name==='mov') atualizaObs(); });
-  atualizaTempo(); if(modo!=='ver') atualizaObs();
-  const bOk=$('#bOk'); if(bOk) bOk.onclick = () => salvarForm(modo, id);
-  const bDel=$('#bDel'); if(bDel) bDel.onclick = () => excluirReg(id);
-  const bEnt=$('#bEnt'); if(bEnt) bEnt.onclick = () => abrirEntrega(id);
-  const bDesf=$('#bDesf'); if(bDesf) bDesf.onclick = () => desfazerEntrega(id);
-  const primeiro=f.querySelector('select:not([disabled]),input:not([type=hidden]):not([disabled])'); if(primeiro && modo!=='finalizar') primeiro.focus();
-}
-function abrirRegistro(id){ abrirForm(isAdmin()?'editar':'ver', id); }
-
-function lerForm(){
-  const f=$('#fOp'), o={};
-  f.querySelectorAll('input,select').forEach(el=>{
-    if(!el.name) return;
-    if(el.type==='radio'){ if(el.checked) o[el.name]=el.value; }
-    else o[el.name]=el.value;
+function dialog(title, text, buttons, opts){
+  opts = opts || {};
+  return new Promise(res => {
+    $('ovTitle').textContent = title; $('ovText').textContent = text;
+    const inp = $('ovIn');
+    inp.classList.toggle('masked', !!opts.pass);   // senha mascarada sem campo type=password (evita o preenchimento automático do Chrome)
+    inp.setAttribute('inputmode', opts.pass ? 'text' : (opts.inputmode || 'url'));
+    inp.setAttribute('autocapitalize', opts.caps ? 'characters' : 'off');
+    inp.placeholder = opts.placeholder || 'Senha';
+    inp.value = opts.value || '';
+    inp.classList.toggle('hidden', !(opts.pass || opts.input));
+    const box = $('ovBtns'); box.innerHTML = '';
+    buttons.forEach(b => {
+      const el = document.createElement('button');
+      el.type = 'button'; el.className = 'btn btn-block ' + (b.cls || 'btn-ghost'); el.textContent = b.label;
+      el.onclick = () => { dialog.val = inp.value; inp.value = ''; $('ov').classList.remove('on'); res(b.v); };
+      box.appendChild(el);
+    });
+    inp.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); box.firstChild && box.firstChild.click(); } };
+    $('ov').classList.add('on');
+    setTimeout(() => (opts.pass || opts.input) ? inp.focus() : (box.firstChild && box.firstChild.focus()), 30);
   });
-  ['sku','vol','un','pal'].forEach(k=>{ if(k in o) o[k]=Number(o[k]||0); });
-  if(o.hi && o.hi.length===5) o.hi+=':00';
-  if(o.hf && o.hf.length===5) o.hf+=':00';
+}
+
+/* ---------- telas ---------- */
+function show(id){
+  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
+  window.scrollTo(0,0);
+}
+
+/* ---------- BANCO DE DADOS: FIREBASE REALTIME DATABASE ----------
+   Cada ação entra numa fila salva no aparelho e é gravada no Firebase.
+   Sem internet, a fila espera e grava sozinha quando a conexão voltar.
+   Estrutura:  leitor/movs/{id}            → dados do movimento
+               leitor/leituras/{id}/{ts}   → cada leitura do movimento          */
+const FIREBASE_CONFIG = {               // projeto Firebase "estoquemov"
+  apiKey: 'AIzaSyC7z_sLiojkDBmOFK4pjSCqFACzArfZDts',
+  authDomain: 'estoquemov.firebaseapp.com',
+  databaseURL: 'https://estoquemov-default-rtdb.firebaseio.com',
+  projectId: 'estoquemov',
+  storageBucket: 'estoquemov.firebasestorage.app',
+  messagingSenderId: '622586330244',
+  appId: '1:622586330244:web:06fe48b8fd7b32d24d96d1'
+};
+const BACKUP_URL = '';                  // URL do App da Web do Apps Script (termina em /exec) — backup na planilha
+const BACKUP_TOKEN = 'PX-LEITOR-2026';  // igual ao TOKEN do Apps Script
+const ROOT = 'leitor';
+const K_Q = 'px_leitor_fila', K_CFG = 'px_leitor_cfg', K_DEV = 'px_leitor_dev', K_BKP = 'px_leitor_ultimo_bkp';
+const DEV = store.get(K_DEV, null) || (() => { const d = 'COL-' + Math.random().toString(36).slice(2,6).toUpperCase(); store.set(K_DEV, d); return d; })();
+const fbCfg = () => { const c = store.get(K_CFG, {}).fb; return (c && c.databaseURL) ? c : FIREBASE_CONFIG; };
+const backupUrl = () => (store.get(K_CFG, {}).url || BACKUP_URL || '').trim();
+let db = null, fbConnected = false, fbErr = '', syncing = false, syncErr = '', syncT = null;
+const nn = v => v === undefined ? null : v;                 // o Firebase não aceita "undefined"
+const timeout = (pr, ms, msg) => Promise.race([pr, new Promise((_, rej) => setTimeout(() => rej(new Error(msg || 'tempo esgotado')), ms))]);
+
+function hdr(m, comNome){
+  const h = { id:m.id, mode:m.mode || 'par', status:m.status, started:nn(m.started), finished:nn(m.finished), dev:DEV, qtd:(m.pairs || []).length };
+  if(comNome) h.mov = m.mov;
+  return h;
+}
+function rowOf(m, p){
+  const i = info(p);
+  return { id:m.id, ts:p.ts, seq:p.n, serial:p.serial || '', etiqueta:p.etiqueta,
+           nfe:nn(i.nfe), vol:nn(i.vol), tot:nn(i.tot), dev:DEV, qtd:(m.pairs || []).length };
+}
+function enqueue(...ops){
+  const q = store.get(K_Q, []); q.push(...ops); store.set(K_Q, q);
+  updateSyncUI(); clearTimeout(syncT); syncT = setTimeout(flush, 400);
+}
+const qMov = m => enqueue({ t:'mov', m:hdr(m, true) });   // o nome segue junto; renomeações feitas em outro aparelho são adotadas antes (ver onMovs)
+
+/* converte uma operação da fila em caminhos de gravação do Firebase */
+function opPaths(op){
+  const o = {}, now = Date.now();
+  if(op.t === 'mov'){
+    const m = op.m, b = 'movs/' + m.id + '/';
+    ['mode','status','started','finished','dev','qtd'].forEach(k => { if(m[k] !== undefined) o[b + k] = nn(m[k]); });
+    if(m.mov !== undefined) o[b + 'mov'] = m.mov;
+    o[b + 'upd'] = now;
+  } else if(op.t === 'add'){
+    const r = op.r;
+    o['leituras/' + r.id + '/' + r.ts] = { seq:r.seq, serial:r.serial || '', etiqueta:r.etiqueta, nfe:nn(r.nfe), vol:nn(r.vol), tot:nn(r.tot), ts:r.ts, dev:r.dev || DEV };
+    if(r.qtd != null) o['movs/' + r.id + '/qtd'] = r.qtd;
+    o['movs/' + r.id + '/upd'] = now;
+  } else if(op.t === 'del'){
+    const ts = op.ts != null ? op.ts : String(op.k || '').split('_').pop();
+    o['leituras/' + op.id + '/' + ts] = null;
+    Object.keys(op.renum || {}).forEach(t => { if(String(t) !== String(ts)) o['leituras/' + op.id + '/' + t + '/seq'] = op.renum[t]; });
+    if(op.qtd != null) o['movs/' + op.id + '/qtd'] = op.qtd;
+    o['movs/' + op.id + '/upd'] = now;
+  } else if(op.t === 'delmov'){
+    o['leituras/' + op.id] = null;
+    o['movs/' + op.id + '/status'] = 'excluido';
+    o['movs/' + op.id + '/delAt'] = now;
+    o['movs/' + op.id + '/upd'] = now;
+  } else if(op.t === 'ren'){
+    o['movs/' + op.id + '/mov'] = op.mov;
+    o['movs/' + op.id + '/renAt'] = now;
+    o['movs/' + op.id + '/upd'] = now;
+  }
   return o;
 }
-function erroForm(msg){ $('#fErro').innerHTML = `<div class="erro">${esc(msg)}</div>`; }
+/* dois caminhos não podem ser "pai e filho" na mesma gravação */
+function conflita(upd, paths){
+  const ks = Object.keys(upd);
+  return Object.keys(paths).some(p => ks.some(k => k !== p && (k.indexOf(p + '/') === 0 || p.indexOf(k + '/') === 0)));
+}
+async function flush(){
+  if(!db || syncing){ updateSyncUI(); return; }
+  if(!store.get(K_Q, []).length){ syncErr = ''; updateSyncUI(); return; }
+  if(!fbConnected){ syncErr = 'offline'; updateSyncUI(); return; }
+  syncing = true; updateSyncUI();
+  const batch = store.get(K_Q, []).slice(0, 400);
+  try{
+    let upd = {};
+    const commit = async () => { if(Object.keys(upd).length){ await timeout(db.ref(ROOT).update(upd), 20000, 'o Firebase não respondeu'); upd = {}; } };
+    for(const op of batch){
+      const paths = opPaths(op);
+      if(conflita(upd, paths)) await commit();
+      Object.assign(upd, paths);
+    }
+    await commit();
+    const q = store.get(K_Q, []); q.splice(0, batch.length); store.set(K_Q, q);
+    syncErr = '';
+  }catch(e){ syncErr = String((e && e.message) || e); }
+  syncing = false; updateSyncUI();
+  if(!syncErr && store.get(K_Q, []).length) setTimeout(flush, 200);
+}
+function syncState(){
+  const n = store.get(K_Q, []).length;
+  if(!fbCfg().databaseURL) return { c:'', t:'Firebase não configurado', s:'Sem banco' };
+  if(fbErr) return { c:'err', t:'Erro no Firebase: ' + fbErr, s:'Erro' };
+  if(!fbConnected) return { c:'warn', t:'Sem conexão com o Firebase' + (n ? ' · ' + n + ' na fila' : ''), s:n ? 'Fila ' + n : 'Offline' };
+  if(syncing) return { c:'run', t:'Gravando ' + n + ' registro(s)…', s:'Gravando' };
+  if(syncErr) return { c:'err', t:n + ' na fila · erro: ' + syncErr, s:'Erro · ' + n };
+  if(n) return { c:'warn', t:n + ' na fila', s:'Fila ' + n };
+  return { c:'ok', t:'Firebase conectado · tudo gravado', s:'Online ✓' };
+}
+function updateSyncUI(){
+  const st = syncState();
+  $('syncChip').className = 'sync ' + st.c; $('syncChip').textContent = st.s;
+  $('syncHome').className = 'sync ' + st.c; $('syncHome').textContent = st.t;
+  const ub = store.get(K_BKP, null);
+  $('syncDev').textContent = 'Este aparelho: ' + DEV + (ub ? ' · último backup: ' + fmtShort(ub) : '');
+}
 
-async function salvarForm(modo, id){
-  const f=$('#fOp');
-  if(!f.reportValidity()) return;
-  const reg=lerForm();
-  if(modo!=='iniciar'){
-    if(reg.div==='SIM' && (!reg.obs || /sem diverg/i.test(reg.obs))) return erroForm('Descreva a divergência em Observações.');
-    const d = dur(reg.hi, reg.hf);
-    if(d!=null && d>12*3600 && !confirm('O tempo realizado passou de 12 horas ('+fmtDur(d)+'). Confirma os horários?')) return;
+/* ---------- conexão ---------- */
+function fbInit(){
+  const cfg = fbCfg();
+  if(!cfg.databaseURL){ updateSyncUI(); return; }
+  if(!window.firebase || !firebase.database){ fbErr = 'Firebase não carregou (verifique a internet)'; updateSyncUI(); return; }
+  try{
+    if(!firebase.apps.length) firebase.initializeApp(cfg);
+    db = firebase.database();
+    db.ref('.info/connected').on('value', s => { fbConnected = !!s.val(); if(fbConnected) syncErr = ''; updateSyncUI(); if(fbConnected) flush(); });
+    const go = () => { listenMovs(); flush(); };
+    if(firebase.auth && cfg.apiKey){
+      try{ firebase.auth().signInAnonymously().then(go, go); }catch(e){ go(); }
+    } else go();
+  }catch(e){ fbErr = String((e && e.message) || e); }
+  updateSyncUI();
+}
+
+/* ---------- lista de movimentos em tempo real ---------- */
+function onMovs(v){
+  v = v || {};
+  const all = Object.keys(v).map(id => Object.assign({ id }, v[id]));
+  const del = new Set(all.filter(m => m.status === 'excluido').map(m => m.id));
+  const movs = all.filter(m => m.status !== 'excluido' && m.mov != null).map(m => Object.assign(m, { qtd:m.qtd || 0 }));
+  store.set(K_REM, { at:Date.now(), movs });
+  // movimentos excluídos em outro aparelho somem também daqui; nomes alterados em outro aparelho são adotados
+  const hist = store.get(K_HIST, []); let mudou = false;
+  const h2 = hist.filter(l => !del.has(l.id)); if(h2.length !== hist.length) mudou = true;
+  h2.forEach(l => { const r = movs.find(x => x.id === l.id);
+    if(r && r.mov && r.mov !== l.mov && (r.renAt || 0) > (l.renamedAt || 0)){ l.mov = r.mov; l.renamedAt = r.renAt; mudou = true; } });
+  if(mudou) store.set(K_HIST, h2);
+  const cur = store.get(K_CUR, null);
+  if(cur){ const r = movs.find(x => x.id === cur.id);
+    if(r && r.mov && r.mov !== cur.mov && (r.renAt || 0) > (cur.renamedAt || 0)){
+      cur.mov = r.mov; cur.renamedAt = r.renAt; store.set(K_CUR, cur);
+      if(S && S.id === cur.id){ S.mov = r.mov; S.renamedAt = r.renAt; if($('scrRead').classList.contains('on')) renderRead(); } } }
+  remErr = '';
+  if($('scrMov').classList.contains('on')) renderHome();
+}
+function listenMovs(){
+  db.ref(ROOT + '/movs').on('value', s => onMovs(s.val()), e => { remErr = String((e && e.message) || e); renderHist(); });
+}
+async function loadRemote(){
+  if(!db){ renderHist(); return; }
+  try{ onMovs((await timeout(db.ref(ROOT + '/movs').once('value'), 15000, 'sem resposta')).val()); }
+  catch(e){ remErr = String((e && e.message) || e); renderHist(); }
+}
+/* um movimento completo, com as leituras */
+async function fbGetMov(id){
+  const [ms, ls] = await timeout(Promise.all([db.ref(ROOT + '/movs/' + id).once('value'), db.ref(ROOT + '/leituras/' + id).once('value')]), 20000, 'o Firebase não respondeu');
+  const m = ms.val(); if(!m || m.status === 'excluido') return null;
+  const lv = ls.val() || {};
+  const pairs = Object.keys(lv).map(k => lv[k]).sort((a,b) => (a.seq || 0) - (b.seq || 0) || a.ts - b.ts)
+    .map((r,i) => ({ n:i + 1, serial:r.serial || null, etiqueta:r.etiqueta, nfe:r.nfe == null ? undefined : r.nfe, vol:r.vol == null ? undefined : r.vol, tot:r.tot == null ? undefined : r.tot, ts:r.ts }));
+  return Object.assign({ id }, m, { pairs, qtd:pairs.length });
+}
+
+/* ---------- planilha (backup / restauração / migração) via Apps Script ---------- */
+async function bkpGet(params){
+  const u = new URL(backupUrl());
+  Object.entries(Object.assign({ token:BACKUP_TOKEN }, params)).forEach(([k,v]) => u.searchParams.set(k, v));
+  return bkpParse(await fetch(u.toString()));
+}
+async function bkpPost(body){
+  return bkpParse(await fetch(backupUrl(), { method:'POST', headers:{ 'Content-Type':'text/plain;charset=utf-8' }, body:JSON.stringify(Object.assign({ token:BACKUP_TOKEN }, body)) }));
+}
+async function bkpParse(r){
+  const t = await r.text(); let j;
+  try{ j = JSON.parse(t); }catch(e){ throw new Error('a planilha respondeu com uma página de erro do Google (tente de novo)'); }
+  if(!j.ok) throw new Error(j.erro || 'falha na planilha');
+  return j;
+}
+function needBackupUrl(){ if(backupUrl()) return true; toast('Configure a URL do backup (Apps Script) em Configurar.', 'err'); return false; }
+function needDb(){ if(db) return true; toast('Configure o Firebase em Configurar.', 'err'); return false; }
+function progress(t){ $('syncHome').className = 'sync run'; $('syncHome').textContent = t; }
+
+async function fazerBackup(){
+  if(!needDb() || !needBackupUrl()) return;
+  const v = await dialog('Backup na planilha', 'Copia todos os movimentos e leituras do Firebase para abas novas na planilha. Pode levar alguns minutos.', [
+    {label:'Fazer backup agora', v:true, cls:'btn-primary'}, {label:'Cancelar', v:false}]);
+  if(!v) return;
+  try{
+    progress('Lendo o Firebase…');
+    const all = (await timeout(db.ref(ROOT).once('value'), 60000, 'o Firebase não respondeu')).val() || {};
+    const movs = all.movs || {}, leit = all.leituras || {};
+    const mRows = Object.keys(movs).map(id => { const m = movs[id];
+      return [id, m.mov || '', m.mode || 'par', m.status || '', m.started || '', m.finished || '', m.qtd || 0, m.dev || '', m.upd || '', m.renAt || '', m.delAt || '']; });
+    const lRows = [];
+    Object.keys(leit).forEach(id => Object.keys(leit[id] || {}).forEach(k => { const r = leit[id][k];
+      lRows.push([id, k, r.seq || '', r.serial || '', r.etiqueta || '', r.nfe == null ? '' : r.nfe, r.vol == null ? '' : r.vol, r.tot == null ? '' : r.tot, r.ts || '', r.dev || '']); }));
+    progress('Criando o backup na planilha…');
+    const ini = await bkpPost({ acao:'backup_inicio', info:{ dev:DEV, movs:mRows.length, leituras:lRows.length } });
+    for(let i = 0; i < mRows.length; i += 2000){ progress('Gravando movimentos ' + Math.min(i + 2000, mRows.length) + '/' + mRows.length + '…'); await bkpPost({ acao:'backup_parte', id:ini.id, tipo:'mov', linhas:mRows.slice(i, i + 2000) }); }
+    for(let i = 0; i < lRows.length; i += 3000){ progress('Gravando leituras ' + Math.min(i + 3000, lRows.length) + '/' + lRows.length + '…'); await bkpPost({ acao:'backup_parte', id:ini.id, tipo:'lei', linhas:lRows.slice(i, i + 3000) }); }
+    const fim = await bkpPost({ acao:'backup_fim', id:ini.id, movs:mRows.length, leituras:lRows.length });
+    store.set(K_BKP, Date.now());
+    toast(fim.completo ? 'Backup ' + ini.id + ' concluído: ' + fim.movs + ' movimentos, ' + fim.leituras + ' leituras' : 'Backup gravado, mas incompleto. Tente de novo.', fim.completo ? 'ok' : 'err');
+  }catch(e){ toast('Backup não concluído: ' + (e.message || e), 'err'); }
+  updateSyncUI();
+}
+
+async function restaurarBackup(){
+  if(!needDb() || !needBackupUrl()) return;
+  let lista;
+  try{ progress('Buscando backups…'); lista = (await bkpGet({ acao:'backups' })).backups || []; }
+  catch(e){ toast('Não foi possível listar os backups: ' + (e.message || e), 'err'); updateSyncUI(); return; }
+  updateSyncUI();
+  lista = lista.filter(b => b.status === 'OK').slice(0, 8);
+  if(!lista.length){ toast('Nenhum backup completo encontrado na planilha.', 'err'); return; }
+  const id = await dialog('Restaurar backup', 'Escolha o backup (mais recente primeiro):',
+    lista.map(b => ({ label:b.id.replace(/\./g, ':') + ' · ' + b.movs + ' mov · ' + b.leituras + ' leituras', v:b.id }))
+      .concat([{ label:'Cancelar', v:null }]));
+  if(!id) return;
+  const modo = await dialog('Como restaurar o backup ' + id.replace(/\./g, ':') + '?',
+    'Mesclar: devolve ao Firebase o que está no backup e mantém o que foi lido depois dele. Substituir tudo: apaga o Firebase e deixa exatamente como estava no backup.', [
+    {label:'Mesclar (recomendado)', v:'merge', cls:'btn-primary'},
+    {label:'Substituir tudo', v:'replace', cls:'btn-danger'},
+    {label:'Cancelar', v:null}]);
+  if(!modo) return;
+  const ok = await dialog('Confirmar restauração', 'Digite a senha para continuar.', [
+    {label:'Restaurar', v:true, cls:'btn-danger'}, {label:'Cancelar', v:false}], { pass:true });
+  if(!ok) return;
+  if(!(await checkPass(dialog.val || ''))){ beep(false); toast('Senha incorreta. Nada foi alterado.', 'err'); return; }
+  try{
+    const ler = async tipo => { let de = 0, out = [], cab = null;
+      for(;;){ progress('Lendo ' + (tipo === 'mov' ? 'movimentos' : 'leituras') + ' do backup… ' + de);
+        const j = await bkpGet({ acao:'backup_ler', id, tipo, de, qtd:3000 }); cab = j.cab; out = out.concat(j.linhas); de += j.linhas.length;
+        if(j.fim || !j.linhas.length) break; }
+      return out; };
+    const mRows = await ler('mov'), lRows = await ler('lei');
+    const num = v => v === '' || v == null ? null : Number(v);
+    const movs = {}, leit = {};
+    mRows.forEach(r => { if(!r[0]) return; const m = { mov:String(r[1]), mode:r[2] || 'par', status:r[3] || 'done', started:num(r[4]), finished:num(r[5]), qtd:num(r[6]) || 0, dev:String(r[7] || ''), upd:num(r[8]) || Date.now() };
+      if(num(r[9])) m.renAt = num(r[9]); if(num(r[10])) m.delAt = num(r[10]); movs[String(r[0])] = m; });
+    lRows.forEach(r => { if(!r[0]) return; const mid = String(r[0]), k = String(r[1]);
+      (leit[mid] = leit[mid] || {})[k] = { seq:num(r[2]) || 0, serial:String(r[3] || ''), etiqueta:String(r[4] || ''), nfe:num(r[5]), vol:num(r[6]), tot:num(r[7]), ts:num(r[8]) || Number(k), dev:String(r[9] || '') }; });
+    if(modo === 'replace'){ progress('Limpando o Firebase…'); await timeout(db.ref(ROOT).set(null), 60000, 'o Firebase não respondeu'); }
+    const paths = [];
+    Object.keys(movs).forEach(id2 => paths.push(['movs/' + id2, movs[id2]]));
+    Object.keys(leit).forEach(id2 => Object.keys(leit[id2]).forEach(k => paths.push(['leituras/' + id2 + '/' + k, leit[id2][k]])));
+    for(let i = 0; i < paths.length; i += 500){
+      progress('Gravando no Firebase ' + Math.min(i + 500, paths.length) + '/' + paths.length + '…');
+      const u = {}; paths.slice(i, i + 500).forEach(([p, v]) => u[p] = v);
+      await timeout(db.ref(ROOT).update(u), 60000, 'o Firebase não respondeu');
+    }
+    toast('Backup restaurado: ' + Object.keys(movs).length + ' movimentos, ' + lRows.length + ' leituras', 'ok');
+    loadRemote();
+  }catch(e){ toast('Restauração não concluída: ' + (e.message || e), 'err'); }
+  updateSyncUI();
+}
+
+/* importa uma vez o histórico do sistema antigo (abas MOVIMENTOS / LEITURAS) para o Firebase */
+async function importarLegado(){
+  if(!needDb() || !needBackupUrl()) return;
+  try{
+    progress('Lendo a planilha antiga…');
+    const lista = (await bkpGet({ acao:'legado_lista' })).movs || [];
+    if(!lista.length){ toast('Nada encontrado nas abas antigas.', 'err'); updateSyncUI(); return; }
+    let n = 0, nl = 0;
+    for(let i = 0; i < lista.length; i += 20){
+      progress('Importando ' + Math.min(i + 20, lista.length) + '/' + lista.length + ' movimentos…');
+      const movs = (await bkpGet({ acao:'legado_movs', ids:lista.slice(i, i + 20).map(m => m.id).join(',') })).movs || [];
+      const u = {};
+      movs.forEach(m => {
+        u['movs/' + m.id] = { mov:String(m.mov), mode:m.mode || 'par', status:m.status || 'done', started:nn(m.started), finished:nn(m.finished), qtd:m.pairs.length, dev:m.dev || '', upd:m.upd || Date.now() };
+        m.pairs.forEach(p => { u['leituras/' + m.id + '/' + (p.ts != null ? p.ts : 'n' + p.n)] = { seq:p.n, serial:p.serial || '', etiqueta:p.etiqueta, nfe:nn(p.nfe), vol:nn(p.vol), tot:nn(p.tot), ts:p.ts, dev:m.dev || '' }; nl++; });
+        n++;
+      });
+      await timeout(db.ref(ROOT).update(u), 60000, 'o Firebase não respondeu');
+    }
+    toast('Importados ' + n + ' movimentos e ' + nl + ' leituras da planilha antiga', 'ok');
+    loadRemote();
+  }catch(e){ toast('Importação não concluída: ' + (e.message || e), 'err'); }
+  updateSyncUI();
+}
+
+/* ---------- configuração ---------- */
+function parseFbCfg(t){
+  const o = {}; let m; const re = /(apiKey|authDomain|databaseURL|projectId|storageBucket|messagingSenderId|appId|measurementId)\s*["']?\s*:\s*["']([^"']+)["']/g;
+  while((m = re.exec(t))) o[m[1]] = m[2];
+  return o;
+}
+$('btnSyncNow').onclick = () => { if(!db){ $('btnSyncCfg').click(); return; } syncErr = ''; flush(); };
+$('btnBkp').onclick = fazerBackup;
+$('btnRest').onclick = restaurarBackup;
+$('btnSyncCfg').onclick = async () => {
+  const v = await dialog('Configurar banco de dados', 'Firebase: ' + (fbCfg().databaseURL || 'não configurado') + '\nBackup: ' + (backupUrl() ? 'planilha configurada' : 'não configurado'), [
+    {label:'Configurar Firebase', v:'fb', cls:'btn-primary'},
+    {label:'URL do backup (Apps Script)', v:'url', cls:'btn-navy'},
+    {label:'Importar dados da planilha antiga', v:'leg'},
+    {label:'Reenviar histórico deste aparelho', v:'resend'},
+    {label:'Cancelar', v:null}]);
+  if(v === 'fb'){
+    const ok = await dialog('Configuração do Firebase', 'Cole a configuração do app da Web (firebaseConfig) copiada do console do Firebase.', [
+      {label:'Salvar e recarregar', v:true, cls:'btn-primary'}, {label:'Cancelar', v:false}], { input:true, inputmode:'text', value:'', placeholder:'apiKey: "…", databaseURL: "https://…firebaseio.com", …' });
+    if(!ok) return;
+    const c = parseFbCfg(dialog.val || '');
+    if(!c.databaseURL){ toast('Não encontrei o databaseURL no texto colado.', 'err'); return; }
+    const cfg = store.get(K_CFG, {}); cfg.fb = c; store.set(K_CFG, cfg);
+    toast('Firebase configurado. Recarregando…', 'ok'); setTimeout(() => location.reload(), 900);
   }
-  const b=$('#bOk');
-  if(modo==='iniciar')   return enviar(b, ()=>api('iniciar',{reg}), 'Operação iniciada.');
-  const msgSep = 'Pedido separado. Ele ficou em "Aguardando retirada".';
-  if(modo==='finalizar'){ const {sku,vol,un,pal,hf,div,obs}=reg; return enviar(b, ()=>api('finalizar',{id,reg:{sku,vol,un,pal,hf,div,obs}}), ehSeparacao(reg.mov)?msgSep:'Operação finalizada e salva.'); }
-  if(modo==='novo')      return enviar(b, ()=>api('salvar',{reg}), ehSeparacao(reg.mov)?msgSep:'Lançamento salvo.');
-  if(modo==='editar')    return enviar(b, ()=>api('editar',{id,reg}), 'Alterações salvas.');
-}
-async function excluirReg(id){
-  const r=S.d.registros.find(x=>x.id===id);
-  if(!confirm(`Excluir o lançamento de ${r.cliente} em ${dataBR(r.data)} (${r.mov})?\nA linha será removida da planilha.`)) return;
-  enviar($('#bDel'), ()=>api('excluir',{id}), 'Lançamento excluído.');
-}
-async function enviar(botao, fn, ok){
-  const txt=botao.textContent; botao.disabled=true; botao.textContent='Salvando…';
-  try{ await fn(); fecharModal(); render(); toast(ok); }
-  catch(e){ botao.disabled=false; botao.textContent=txt; if($('#fErro')) erroForm(e.message); else toast(e.message,true); }
+  if(v === 'url'){
+    const ok = await dialog('URL do backup', 'Cole a URL do App da Web do Apps Script (termina em /exec).', [
+      {label:'Salvar', v:'save', cls:'btn-primary'}, {label:'Testar conexão', v:'test', cls:'btn-navy'}, {label:'Cancelar', v:null}],
+      { input:true, value:backupUrl(), placeholder:'https://script.google.com/macros/s/…/exec' });
+    if(!ok) return;
+    const url = (dialog.val || '').trim();
+    if(url && !/^https:\/\/script\.google(usercontent)?\.com\//.test(url)){ toast('URL inválida. Use a URL do App da Web (/exec).', 'err'); return; }
+    const cfg = store.get(K_CFG, {}); cfg.url = url; store.set(K_CFG, cfg);
+    if(ok === 'test'){
+      try{ const j = await (await fetch(url)).json(); toast(j.ok ? 'Conexão com a planilha OK' : 'Resposta inesperada', j.ok ? 'ok' : 'err'); }
+      catch(e){ toast('Não conectou. Confira a URL e se o App da Web está para "Qualquer pessoa".', 'err'); }
+    } else toast(url ? 'URL do backup salva' : 'Backup desligado', 'ok');
+    updateSyncUI();
+  }
+  if(v === 'leg') importarLegado();
+  if(v === 'resend'){
+    const all = store.get(K_HIST, []).slice();
+    const cur = store.get(K_CUR, null); if(cur) all.push(cur);
+    const ops = [];
+    all.forEach(m => { ops.push({ t:'mov', m:hdr(m, true) }); m.pairs.forEach(p => ops.push({ t:'add', r:rowOf(m,p) })); });
+    if(!ops.length){ toast('Nada para enviar'); return; }
+    enqueue(...ops); toast(all.length + ' movimento(s) na fila de envio', 'ok');
+  }
+};
+
+/* ---------- tela 1 ---------- */
+function renderHome(){
+  const cur = store.get(K_CUR, null);
+  const rb = $('resumeBox');
+  if(cur && cur.pairs){
+    rb.innerHTML = '<div class="card resume"><h3>Movimento ' + esc(cur.mov) + ' em aberto</h3>' +
+      '<p>' + cur.pairs.length + ' ' + unitLbl(cur) + ' lidos · iniciado em ' + fmtShort(cur.started) + '</p>' +
+      '<div class="row2"><button class="btn btn-primary" id="rsGo" type="button">Retomar</button>' +
+      '<button class="btn btn-ghost" id="rsEnd" type="button">Terminar</button></div>' +
+      '<button class="del-mov" id="rsDel" type="button" style="margin-bottom:0">Excluir movimento em aberto</button></div>';
+    $('rsGo').onclick = () => { S = cur; startReading(); };
+    $('rsEnd').onclick = () => { S = cur; finish(); };
+    $('rsDel').onclick = () => deleteMov(cur);
+    $('btnStart').disabled = true;
+    $('btnStart').textContent = 'Conclua o movimento em aberto';
+  } else {
+    rb.innerHTML = '';
+    $('btnStart').disabled = false;
+    $('btnStart').textContent = 'Iniciar leitura';
+  }
+  renderHist();
 }
 
-/* ══════════ ENTREGA / RETIRADA ══════════ */
-function blocoEntrega(r){
-  if(r.stEnt===ST_AG) return `<div class="ent-box"><div class="tx"><b>Aguardando retirada</b>Separado em ${dataBR(r.data)} às ${esc(r.hf.slice(0,5))}, há ${fmtEspera((Date.now()-fimSeparacao(r))/1000)}.</div>
-    <button type="button" class="btn btn-pri" id="bEnt">Registrar entrega</button></div>`;
-  if(r.stEnt===ST_EN) return `<div class="ent-box"><div class="tx"><b>Entregue</b>Por ${esc(r.entPor)} em ${dataBR(r.entData)} às ${esc((r.entHora||'').slice(0,5))}${tempoRetirada(r)!=null?' ('+fmtEspera(tempoRetirada(r)).replace(/:\d\d$/,'')+' após a separação)':''}.
-    ${r.entObs?`<br>Observação: ${esc(r.entObs)}`:''}</div>${isAdmin()?'<button type="button" class="btn btn-sec" id="bDesf">Desfazer entrega</button>':''}</div>`;
-  return '';
+/* ---------- lista geral: local + Firebase ---------- */
+const K_REM = 'px_leitor_remoto';
+const ST_TXT = { reading:'EM LEITURA', paused:'PAUSADO', done:'FINALIZADO' };
+let remErr = '';
+function mergedList(){
+  const cur = store.get(K_CUR, null);
+  const map = new Map();
+  (store.get(K_REM, { movs:[] }).movs || []).forEach(r => map.set(r.id, Object.assign({ remote:true, qtd:r.qtd }, r)));
+  store.get(K_HIST, []).forEach(l => {
+    const r = map.get(l.id);
+    map.set(l.id, { id:l.id, mov:l.mov, mode:l.mode, status:l.status, started:l.started, finished:l.finished,
+                    qtd:l.pairs.length, dev:(r && r.dev) || DEV, upd:l.finished, local:true });
+  });
+  if(cur) map.delete(cur.id);
+  return [...map.values()].sort((a,b) => (b.upd || b.finished || b.started || 0) - (a.upd || a.finished || a.started || 0));
 }
-function abrirEntrega(id){
-  const r=S.d.registros.find(x=>x.id===id); if(!r){ toast('Pedido não encontrado. Atualize os dados.',true); return; }
-  abrirModal('Registrar entrega', `
-    <div class="resumo-op"><div class="cli">${esc(r.cliente)}</div>
-      <div class="meta">${esc(r.nf||'Sem nº de pedido')} | ${nf(r.vol)} volumes | ${nf(r.un)} unidades${r.pal?' | '+nf(Math.abs(r.pal))+' pallets':''}<br>
-      Separado por ${esc(r.colab)} em ${dataBR(r.data)} às ${esc(r.hf.slice(0,5))}</div></div>
-    <form id="fEnt" class="form">
-      <label class="f full"><span>Quem entregou<em>*</em></span>${selectCad('por','colaboradores','')}</label>
-      <label class="f"><span>Dia<em>*</em></span><input class="in" type="date" name="data" value="${hojeISO()}" required></label>
-      <label class="f"><span>Horário<em>*</em></span><input class="in" type="time" step="1" name="hora" value="${agoraHora()}" required></label>
-      <label class="f full"><span>Observação da entrega</span>
-        <textarea class="in" name="obs" rows="3" placeholder="Ex.: retirado pelo motorista da transportadora, placa, volume avariado, entrega parcial…"></textarea></label>
-    </form><div id="fErro"></div>`,
-    `<button class="btn btn-sec" onclick="fecharModal()">Voltar</button><button class="btn btn-pri" id="bOk">Confirmar entrega</button>`);
-  $('#fEnt').por.focus();
-  $('#bOk').onclick = () => {
-    const f=$('#fEnt'); if(!f.reportValidity()) return;
-    let hora=f.hora.value; if(hora.length===5) hora+=':00';
-    const ent={ por:f.por.value, data:f.data.value, hora, obs:f.obs.value.trim() };
-    if(new Date(ent.data+'T'+hora) < fimSeparacao(r)) return erroForm('O horário da entrega está antes do fim da separação ('+dataBR(r.data)+' '+r.hf.slice(0,5)+'). Confira o dia e o horário.');
-    enviar($('#bOk'), ()=>api('entregar',{id,ent}), 'Entrega registrada.');
-  };
-}
-async function desfazerEntrega(id){
-  if(!confirm('Desfazer a entrega? O pedido volta para "Aguardando retirada" e os dados da entrega são apagados.')) return;
-  enviar($('#bDesf'), ()=>api('desfazerEntrega',{id}), 'Pedido voltou para aguardando retirada.');
-}
-
-/* ── Senha / conexão ── */
-function abrirSenha(){
-  abrirModal('Trocar senha', `<form id="fS" class="form"><label class="f full">Nova senha<input class="in" type="password" name="nova" minlength="4" required autocomplete="new-password"></label>
-    <label class="f full">Repita a nova senha<input class="in" type="password" name="rep" required autocomplete="new-password"></label></form><div id="fErro"></div>`,
-    `<button class="btn btn-sec" onclick="fecharModal()">Cancelar</button><button class="btn btn-pri" id="bOk">Salvar senha</button>`);
-  $('#bOk').onclick = () => {
-    const f=$('#fS'); if(!f.reportValidity()) return;
-    if(f.nova.value!==f.rep.value) return erroForm('As senhas não conferem.');
-    const nova=f.nova.value;
-    enviar($('#bOk'), async()=>{ await api('trocarSenha',{nova}); S.senha=nova; if(LS.get(K_LOGIN)) LS.set(K_LOGIN, JSON.stringify({usuario:S.user.usuario,senha:nova})); }, 'Senha alterada.');
-  };
-}
-function abrirConexao(){
-  abrirModal('Conexão com a planilha', `<form id="fC" class="form"><label class="f full">URL do Apps Script (termina em /exec)
-    <input class="in" name="url" value="${esc(S.api)}" placeholder="https://script.google.com/macros/s/…/exec" required></label></form>
-    <p class="nota">A URL aparece no Apps Script em Implantar, Gerenciar implantações. Ela fica salva neste aparelho.</p><div id="fErro"></div>`,
-    `<button class="btn btn-sec" onclick="fecharModal()">Cancelar</button><button class="btn btn-pri" id="bOk">Testar e salvar</button>`);
-  $('#bOk').onclick = async () => {
-    const url=$('#fC').url.value.trim(); const b=$('#bOk'); b.disabled=true; b.textContent='Testando…';
-    try{
-      const r=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({acao:'ping'})});
-      const txt=await r.text(); let j; try{ j=JSON.parse(txt); }catch(e){ throw new Error(diagnostico(txt,r.status)); }
-      if(!j.ok) throw new Error(j.erro||'Resposta inesperada.');
-      S.api=url; LS.set(K_API,url); fecharModal(); toast('Conexão funcionando.');
-      if(!S.user) telaLogin();
-    }catch(e){ b.disabled=false; b.textContent='Testar e salvar'; erroForm(e.message && e.message!=='Failed to fetch' ? e.message : 'Não foi possível conectar. Confira a URL e se a implantação está liberada para "Qualquer pessoa".'); }
-  };
-}
-
-/* ── Modal ── */
-function abrirModal(titulo, corpo, rodape){
-  fecharModal();
-  const d=document.createElement('div'); d.className='fundo'; d.id='modal';
-  d.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-label="${esc(titulo)}">
-    <div class="modal-cab"><h3>${esc(titulo)}</h3><button onclick="fecharModal()" aria-label="Fechar">×</button></div>
-    <div class="modal-corpo">${corpo}</div><div class="modal-rod">${rodape}</div></div>`;
-  d.addEventListener('mousedown', e=>{ if(e.target===d) fecharModal(); });
-  document.body.appendChild(d); document.body.style.overflow='hidden';
-}
-function fecharModal(){ const m=$('#modal'); if(m) m.remove(); document.body.style.overflow=''; }
-document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ if($('#modal')) fecharModal(); else if(S.menu){S.menu=false;render();} } });
-document.addEventListener('click', e=>{ if(S.menu && !e.target.closest('.menu')){ S.menu=false; render(); } });
-
-/* ── Pós-render, cronômetros e atualização automática ── */
-function posRender(){
-  const b=$('#busca');
-  if(b){ let t; b.oninput=()=>{ clearTimeout(t); t=setTimeout(()=>{ S.f.q=b.value; const pos=b.selectionStart; render(); const nb=$('#busca'); nb.focus(); nb.setSelectionRange(pos,pos); },300); }; }
-}
-function tick(){
-  document.querySelectorAll('[data-start]').forEach(el=>{
-    const s=(Date.now()-new Date(el.dataset.start).getTime())/1000;
-    el.textContent = el.dataset.fmt==='espera' ? fmtEspera(s) : fmtDur(s);
-    el.classList.toggle('longo', s > (+el.dataset.lim || 4*3600));
+function renderHist(){
+  const q = ($('histQ').value || '').trim().toLowerCase();
+  const list = mergedList().filter(m => !q || String(m.mov).toLowerCase().includes(q));
+  const rem = store.get(K_REM, null);
+  $('histInfo').textContent = !fbCfg().databaseURL ? 'Firebase não configurado: mostrando só os movimentos deste aparelho.'
+    : remErr ? 'Erro ao ler o Firebase (' + remErr + '). ' + (rem ? 'Mostrando a última lista de ' + fmtShort(rem.at) + '.' : '')
+    : !fbConnected ? 'Sem conexão: mostrando a última lista' + (rem ? ' de ' + fmtShort(rem.at) : '') + ' · ' + list.length + ' movimento(s)'
+    : 'Atualizado em tempo real · ' + list.length + ' movimento(s)';
+  const hl = $('histList');
+  if(!list.length){ hl.innerHTML = '<li class="empty">' + (q ? 'Nenhum movimento encontrado.' : 'Nenhum movimento registrado ainda.') + '</li>'; hl._html = ''; return; }
+  const html = list.slice(0, 150).map((m,i) =>
+    '<li><div class="grow"><div class="h-mov">' + esc(m.mov) +
+      (m.mode === 'uni' ? '<span class="tag">CÓDIGO ÚNICO</span>' : '') +
+      (m.status !== 'done' ? '<span class="tag live">' + (ST_TXT[m.status] || esc(m.status)) + '</span>' : '') + '</div>' +
+      '<div class="h-inf">' + m.qtd + ' ' + unitLbl(m) + ' · ' + fmtShort(m.finished || m.upd || m.started) +
+      ' · ' + (m.local ? 'este aparelho' : esc(m.dev || '—')) + '</div></div>' +
+    '<button class="link-btn" data-i="' + i + '" type="button">Abrir</button>' +
+    '<button class="link-del" data-i="' + i + '" type="button" aria-label="Excluir movimento ' + esc(m.mov) + '">Excluir</button></li>').join('');
+  if(hl._html === html) return;          // nada mudou: não redesenha (os botões não piscam sob o mouse)
+  hl._html = html; hl.innerHTML = html;
+  const shown = list.slice(0, 150);
+  hl.querySelectorAll('.link-btn').forEach(b => b.onclick = () => openMov(shown[+b.dataset.i]));
+  hl.querySelectorAll('.link-del').forEach(b => b.onclick = () => {
+    const m = shown[+b.dataset.i];
+    deleteMov(m.local ? store.get(K_HIST, []).find(h => h.id === m.id) : Object.assign({ pairs:{ length:m.qtd } }, m));
   });
 }
-setInterval(tick, 1000);
-setInterval(()=>{ if(S.user && !$('#modal') && !document.hidden && !S.menu && document.activeElement?.id!=='busca') atualizar(true); }, 60000);
-document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && S.user && !$('#modal')) atualizar(true); });
+async function openMov(m){
+  if(m.local){ S = store.get(K_HIST, []).find(h => h.id === m.id); renderEnd(); show('scrEnd'); return; }
+  toast('Abrindo movimento ' + m.mov + '…');
+  try{
+    if(!db) throw new Error('Firebase não configurado');
+    const mv = await fbGetMov(m.id);
+    if(!mv) throw new Error('movimento não encontrado');
+    S = Object.assign(mv, { remote:true });
+    renderEnd(); show('scrEnd');
+  }catch(e){ toast('Não foi possível abrir: ' + (navigator.onLine === false ? 'sem internet' : (e.message || e)), 'err'); }
+}
+$('histQ').addEventListener('input', renderHist);
+// se o navegador preencher a busca sozinho (ex.: e-mail salvo), limpa
+function cleanHistQ(){ const v = $('histQ').value || ''; if(v.indexOf('@') >= 0){ $('histQ').value = ''; renderHist(); } }
+$('histQ').addEventListener('change', cleanHistQ);
+setTimeout(cleanHistQ, 800); setTimeout(cleanHistQ, 2500);
+$('btnHistRef').onclick = loadRemote;
 
-/* ── Início ── */
-(async function(){
-  const salvo = JSON.parse(LS.get(K_LOGIN)||'null');
-  if(salvo && S.api){
-    $('#app').innerHTML='<div class="carregando">Entrando…</div>';
-    try{ await entrar(salvo.usuario, salvo.senha); return; }catch(e){ LS.del(K_LOGIN); return telaLogin(e.message); }
+/* ---------- exportar vários movimentos juntos (tela própria, caixas de seleção nativas) ---------- */
+let selItems = [];
+function renderSel(){
+  selItems = mergedList().slice(0, 300);
+  $('selList').innerHTML = selItems.length ? selItems.map((m,i) =>
+    '<label class="chk"><input type="checkbox" value="' + i + '">' +
+    '<span class="grow"><span class="h-mov" style="display:block">' + esc(m.mov) +
+      (m.mode === 'uni' ? '<span class="tag">CÓDIGO ÚNICO</span>' : '') +
+      (m.status !== 'done' ? '<span class="tag live">' + (ST_TXT[m.status] || esc(m.status)) + '</span>' : '') + '</span>' +
+    '<span class="h-inf" style="display:block">' + (m.qtd || 0) + ' ' + unitLbl(m) + ' · ' + fmtShort(m.finished || m.upd || m.started) +
+      ' · ' + (m.local ? 'este aparelho' : esc(m.dev || '—')) + '</span></span></label>').join('')
+    : '<p class="empty">Nenhum movimento disponível.</p>';
+  selCount();
+}
+function selChecked(){ return Array.prototype.slice.call($('selList').querySelectorAll('input:checked')).map(c => selItems[+c.value]).filter(Boolean); }
+function selCount(){
+  const n = selChecked().length;
+  $('selGo').textContent = 'Exportar selecionados (' + n + ')';
+  $('selGo').disabled = n < 1;
+}
+$('selList').addEventListener('change', selCount);
+$('btnSel').onclick = () => { renderSel(); show('scrSel'); };
+$('selBack').onclick = () => { renderHome(); show('scrMov'); };
+$('selAll').onclick = () => { $('selList').querySelectorAll('input').forEach(c => c.checked = true); selCount(); };
+$('selNone').onclick = () => { $('selList').querySelectorAll('input').forEach(c => c.checked = false); selCount(); };
+$('selGo').onclick = async () => {
+  const chosen = selChecked().sort((a,b) => (a.started || 0) - (b.started || 0));
+  if(!chosen.length) return;
+  $('selGo').disabled = true;
+  toast('Carregando ' + chosen.length + ' movimento(s)…');
+  try{
+    const hist = store.get(K_HIST, []);
+    const remIds = chosen.filter(m => !m.local).map(m => m.id);
+    const got = {};
+    if(remIds.length){
+      if(!db) throw new Error('Firebase não configurado');
+      const res = await Promise.all(remIds.map(id => fbGetMov(id)));
+      res.forEach((m, i) => got[remIds[i]] = m);
+    }
+    const ok = chosen.map(m => m.local ? hist.find(x => x.id === m.id) : got[m.id]).filter(Boolean);
+    const miss = chosen.length - ok.length;
+    if(miss) toast(miss + ' movimento(s) não encontrado(s) e ficaram de fora', 'err');
+    if(!ok.length) throw new Error('nenhum movimento carregado');
+    if(ok.length === 1){ S = Object.assign({}, ok[0], chosen[0].local ? {} : { remote:true }); }
+    else {
+      S = { id:'multi', mov:ok.map(m => m.mov).join(' + '), remote:true, status:'done',
+            mode: ok.every(m => m.mode === 'uni') ? 'uni' : 'par',
+            multi: ok.map(m => ({ id:m.id, mov:m.mov, mode:m.mode || 'par', qtd:m.pairs.length, dev:m.dev || DEV, status:m.status, started:m.started, finished:m.finished })),
+            started: Math.min.apply(null, ok.map(m => m.started || Date.now())),
+            finished: Math.max.apply(null, ok.map(m => m.finished || m.started || 0)) || null,
+            pairs: [] };
+      ok.forEach(m => m.pairs.forEach(p => S.pairs.push(Object.assign({}, p, { mov:m.mov, mid:m.id }))));
+      S.pairs.forEach((p,i) => p.n = i + 1);
+    }
+    renderEnd(); show('scrEnd');
+  }catch(e){
+    toast('Não foi possível carregar: ' + (navigator.onLine === false ? 'sem internet' : (e.message || e)), 'err');
   }
-  telaLogin(S.api ? '' : 'Antes de entrar, configure a conexão com a planilha.');
+  selCount();
+};
+
+/* excluir movimento: finalizado exige senha; em aberto só confirmação */
+async function deleteMov(m){
+  if(!m) return false;
+  const done = m.status === 'done' || !!m.remote;
+  const v = await dialog('Excluir o movimento ' + m.mov + '?',
+    m.pairs.length + ' ' + unitLbl(m) + ' serão apagados deste aparelho. Essa ação não pode ser desfeita.' +
+    (done ? ' Digite a senha para confirmar.' : ' Se precisar, exporte o PDF ou Excel antes.'), [
+    {label:'Excluir movimento', v:true, cls:'btn-danger'}, {label:'Cancelar', v:false}], { pass: done });
+  if(!v) return false;
+  if(done && !(await checkPass(dialog.val || ''))){ beep(false); toast('Senha incorreta. Movimento não excluído.', 'err'); return false; }
+  enqueue({ t:'delmov', id:m.id });
+  const cur = store.get(K_CUR, null);
+  if(cur && cur.id === m.id) store.del(K_CUR);
+  store.set(K_HIST, store.get(K_HIST, []).filter(h => h.id !== m.id));
+  const rem = store.get(K_REM, null);
+  if(rem){ rem.movs = rem.movs.filter(r => r.id !== m.id); store.set(K_REM, rem); }
+  if(S && S.id === m.id) S = null;
+  renderHome(); show('scrMov');
+  toast('Movimento ' + m.mov + ' excluído');
+  return true;
+}
+
+$('movInput').addEventListener('keydown', e => {
+  if(e.key === 'Tab' && $('movInput').value.trim()){ e.preventDefault(); $('movForm').requestSubmit ? $('movForm').requestSubmit() : $('btnStart').click(); }
+});
+$('movForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const mov = $('movInput').value.trim();
+  if(!mov){ toast('Informe o nº do movimento ou o código do produto', 'err'); return; }
+  if(store.get(K_CUR, null)) return;
+  S = { id: Date.now().toString(36), mov, mode: newMode, started: Date.now(), finished: null, pairs: [], pending: null, status: 'reading' };
+  save(); qMov(S, true); $('movInput').value = '';
+  startReading();
+});
+
+/* ---------- tela 2: leitura ---------- */
+let qr = null, lastCode = '', lastAt = 0, busy = false, torchOn = false;
+
+function renderRead(){
+  $('rdMovLbl').textContent = 'Movimento ' + S.mov;
+  $('rdCount').textContent = S.pairs.length;
+  $('rdStart').textContent = 'início ' + fmtShort(S.started);
+  $('rdUnit').textContent = unitLbl(S);
+  document.querySelector('.list-head h2').textContent = isUni() ? 'Códigos lidos' : 'Pares lidos';
+  $('stepsBar').classList.toggle('hidden', isUni());
+  if(isUni()){
+    const ask = $('askTxt'); ask.className = 'ask';
+    ask.innerHTML = 'Leia o CÓDIGO<small>Leitura simples, sem pareamento</small>';
+    $('frame').className = 'frame'; $('scanBox').classList.remove('two');
+    $('scanIn').placeholder = 'Aguardando código…';
+    $('pendBox').classList.remove('on');
+    renderPairs(); renderLast(); return;
+  }
+  const two = !!S.pending;
+  $('st1').className = 'st ' + (two ? 'done' : 'act');
+  $('st1').querySelector('.dot').textContent = two ? '✓' : '1';
+  $('st2').className = 'st two' + (two ? ' act' : '');
+  const ask = $('askTxt');
+  ask.className = 'ask' + (two ? ' two' : '');
+  ask.innerHTML = two ? 'Leia a ETIQUETA INTERNA<small>QR Code da etiqueta</small>' : 'Leia o SERIAL<small>Código de barras do produto</small>';
+  $('frame').className = 'frame' + (two ? ' two' : '');
+  $('scanBox').classList.toggle('two', two);
+  $('scanIn').placeholder = two ? 'Aguardando etiqueta…' : 'Aguardando serial…';
+  $('pendBox').classList.toggle('on', two);
+  $('pendVal').textContent = two ? S.pending.serial : '—';
+  renderPairs();
+  renderLast();
+}
+function renderLast(){
+  const box = $('lastBox'), p = S.pairs[S.pairs.length - 1];
+  if(!p){ box.classList.remove('on'); return; }
+  const i = info(p);
+  const r = i.nfe != null ? nfSummary().find(n => n.nfe === i.nfe) : null;
+  box.classList.add('on');
+  box.innerHTML = '<div class="lb-cell"><span>NF-e</span><b>' + (i.nfe ?? '—') + '</b></div>' +
+    '<div class="lb-cell vol"><span>Volume</span><b>' + volTxt(i) + '</b></div>' +
+    '<div class="lb-foot">' + (isUni() ? 'Última leitura #' + p.n : 'Último par #' + p.n + ' · serial ' + esc(p.serial)) +
+    (r ? ' · ' + r.lidos + ' de ' + r.tot + ' volumes desta NF-e lidos' : '') +
+    (r && r.gapTxt ? '<span class="warn">Faltas intermediárias desta NF-e: vol ' + r.gapTxt + '</span>' : '') + '</div>';
+}
+function renderPairs(highlight){
+  const pl = $('pairList');
+  if(!S.pairs.length){ pl.innerHTML = '<li class="empty" style="padding:8px 0">' + (isUni() ? 'Os códigos' : 'Os pares') + ' aparecem aqui conforme a leitura.</li>'; return; }
+  pl.innerHTML = S.pairs.slice().reverse().map(p =>
+    '<li class="pair' + (p.n === highlight ? ' new' : '') + '"><div class="n">' + p.n + '</div>' +
+    (isUni()
+      ? '<div class="v"><div><em>CÓDIGO</em>' + esc(p.etiqueta) + '</div>' + (info(p).nfe != null ? '<div class="nf"><em>NF-e</em>' + info(p).nfe + ' <span>vol ' + volTxt(info(p)) + '</span></div>' : '') + '</div>'
+      : '<div class="v"><div><em>SERIAL</em>' + esc(p.serial) + '</div><div class="nf"><em>NF-e</em>' + (info(p).nfe ?? '—') + ' <span>vol ' + volTxt(info(p)) + '</span></div><div class="et">' + esc(p.etiqueta) + '</div></div>') +
+    '<button class="del" data-n="' + p.n + '" aria-label="Excluir par ' + p.n + '" type="button">×</button></li>').join('');
+  pl.querySelectorAll('.del').forEach(b => b.onclick = () => removePair(+b.dataset.n));
+}
+async function removePair(n){
+  const p = S.pairs.find(x => x.n === n); if(!p) return;
+  const v = await dialog('Excluir ' + (isUni() ? 'leitura ' : 'par ') + n + '?', isUni() ? 'Código ' + p.etiqueta : 'Serial ' + p.serial + ' / Etiqueta ' + p.etiqueta, [
+    {label:'Excluir', v:true, cls:'btn-danger'}, {label:'Cancelar', v:false}]);
+  if(!v){ focusScan(); return; }
+  S.pairs = S.pairs.filter(x => x.n !== n);
+  S.pairs.forEach((x,i) => x.n = i + 1);
+  const renum = {}; S.pairs.forEach(x => renum[x.ts] = x.n);
+  enqueue({ t:'del', id:S.id, ts:p.ts, renum, qtd:S.pairs.length });
+  save(); renderRead(); toast(isUni() ? 'Leitura excluída' : 'Par excluído'); focusScan();
+}
+
+function handleCode(raw){
+  const code = String(raw || '').trim();
+  if(!code || !S || S.status !== 'reading') return;
+  const now = Date.now();
+  if(code === lastCode && now - lastAt < 2500) return;      // evita leitura repetida do mesmo código
+  if(busy) return;
+  lastCode = code; lastAt = now;
+  busy = true; setTimeout(() => busy = false, 700);
+  const bad = msg => { beep(false); flash(false); toast(msg, 'err'); };
+  const dupVol = et => S.pairs.find(p => { const i = info(p); return i.nfe === et.nfe && i.vol === et.vol; });
+
+  if(isUni()){
+    const dup = S.pairs.find(p => p.etiqueta === code);
+    if(dup){ bad('Código já lido na leitura ' + dup.n); return; }
+    const et = parseEtq(code), rec = { n: S.pairs.length + 1, serial: null, etiqueta: code, ts: now };
+    if(et){
+      if(et.vol < 1 || et.vol > et.tot){ bad('Volume ' + et.vol + '/' + et.tot + ' inválido. Leia de novo.'); return; }
+      const dv = dupVol(et); if(dv){ bad('NF-e ' + et.nfe + ' vol ' + et.vol + ' já lido na leitura ' + dv.n); return; }
+      Object.assign(rec, { nfe: et.nfe, vol: et.vol, tot: et.tot });
+    }
+    S.pairs.push(rec);
+    enqueue({ t:'add', r:rowOf(S, rec) });
+    beep(true); flash(true); save(); renderRead(); renderPairs(rec.n);
+    toast('Leitura ' + rec.n + (et ? ' · NF-e ' + et.nfe + ' · vol ' + et.vol + '/' + et.tot : ''), 'ok');
+    return;
+  }
+
+  if(!S.pending){
+    const dup = S.pairs.find(p => p.serial === code);
+    if(dup){ beep(false); flash(false); toast('Serial já lido no par ' + dup.n, 'err'); return; }
+    if(parseEtq(code)){ beep(false); flash(false); toast('Isso é a ETIQUETA INTERNA. Leia primeiro o SERIAL.', 'err'); return; }
+    S.pending = { serial: code, ts: now };
+    beep(true); flash(true); save(); renderRead();
+  } else {
+    if(code === S.pending.serial){ beep(false); flash(false); toast('Mesmo código do serial. Leia a ETIQUETA INTERNA.', 'err'); return; }
+    const et = parseEtq(code);
+    if(!et){ beep(false); flash(false); toast('Não é uma etiqueta interna válida (' + ETQ.len + ' dígitos). Leia a ETIQUETA.', 'err'); return; }
+    if(et.vol < 1 || et.vol > et.tot){ beep(false); flash(false); toast('Volume ' + et.vol + '/' + et.tot + ' inválido. Leia a etiqueta de novo.', 'err'); return; }
+    const dup = S.pairs.find(p => p.etiqueta === code);
+    if(dup){ beep(false); flash(false); toast('Etiqueta já usada no par ' + dup.n + ' (NF-e ' + et.nfe + ' vol ' + et.vol + '/' + et.tot + ')', 'err'); return; }
+    const dv = dupVol(et); if(dv){ bad('NF-e ' + et.nfe + ' vol ' + et.vol + ' já lido no par ' + dv.n); return; }
+    const n = S.pairs.length + 1;
+    S.pairs.push({ n, serial: S.pending.serial, etiqueta: code, nfe: et.nfe, vol: et.vol, tot: et.tot, ts: now });
+    S.pending = null;
+    enqueue({ t:'add', r:rowOf(S, S.pairs[S.pairs.length - 1]) });
+    beep(true); flash(true); save(); renderRead(); renderPairs(n);
+    toast('Par ' + n + ' · NF-e ' + et.nfe + ' · vol ' + et.vol + '/' + et.tot, 'ok');
+  }
+}
+
+/* ---------- COLETOR (entrada principal) ----------
+   Coletores com leitor embutido e leitores bluetooth/USB "digitam" o código.
+   Aceita finalização com Enter ou Tab e, se o coletor não enviar sufixo,
+   registra sozinho quando os caracteres chegam na velocidade de um leitor. */
+const scanIn = $('scanIn');
+let kbMode = false, kTimes = [], lastLen = 0, burst = false, idleT = null;
+const overlayOpen = () => $('ov').classList.contains('on');
+const readingOn = () => $('scrRead').classList.contains('on') && S && S.status === 'reading';
+
+function commitScan(){
+  clearTimeout(idleT);
+  const v = scanIn.value;
+  scanIn.value = ''; kTimes = []; lastLen = 0; burst = false;
+  if(v.trim()){ lastCode = ''; handleCode(v); }
+}
+function focusScan(){
+  if(!readingOn() || overlayOpen()) return;
+  if(document.activeElement !== scanIn) scanIn.focus({ preventScroll:true });
+}
+function setScanState(){
+  const on = document.activeElement === scanIn;
+  $('scanBox').classList.toggle('off', !on);
+  $('scanStateTxt').textContent = !on ? 'Toque aqui para ativar o coletor'
+    : kbMode ? 'Digite o código e toque em OK' : 'Coletor pronto · aperte o gatilho';
+}
+scanIn.addEventListener('keydown', e => {
+  if(e.key === 'Enter' || e.key === 'Tab' || e.keyCode === 13){ e.preventDefault(); commitScan(); }
+});
+scanIn.addEventListener('input', () => {
+  const now = performance.now(), len = scanIn.value.length;
+  if(len - lastLen >= 3) burst = true;               // coletor que envia o código inteiro de uma vez
+  lastLen = len; kTimes.push(now);
+  clearTimeout(idleT);
+  if(kbMode) return;
+  idleT = setTimeout(() => {
+    let fast = burst;
+    if(!fast && kTimes.length >= 4){
+      const avg = (kTimes[kTimes.length-1] - kTimes[0]) / (kTimes.length - 1);
+      fast = avg < 45;                                // velocidade de leitor, não de dedo
+    }
+    if(fast && scanIn.value.trim().length >= 3) commitScan();
+  }, 200);
+});
+scanIn.addEventListener('focus', setScanState);
+scanIn.addEventListener('blur', () => { setScanState(); setTimeout(() => { if(document.activeElement === document.body) focusScan(); }, 250); });
+// se o foco estiver fora do campo, as teclas do coletor são redirecionadas para ele
+document.addEventListener('keydown', e => {
+  if(!readingOn() || overlayOpen() || document.activeElement === scanIn) return;
+  const t = document.activeElement && document.activeElement.tagName;
+  if(t === 'INPUT' || t === 'TEXTAREA') return;
+  if(e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey){
+    e.preventDefault(); scanIn.focus({ preventScroll:true }); scanIn.value += e.key;
+    scanIn.dispatchEvent(new Event('input'));
+  } else if(e.key === 'Enter' && scanIn.value){ e.preventDefault(); commitScan(); }
+});
+$('btnKb').onclick = () => {
+  kbMode = !kbMode;
+  $('btnKb').setAttribute('aria-pressed', kbMode);
+  $('btnKb').textContent = kbMode ? 'Fechar teclado' : 'Digitar';
+  scanIn.setAttribute('inputmode', kbMode ? 'text' : 'none');
+  scanIn.blur(); setTimeout(() => { scanIn.focus(); setScanState(); }, 60);
+};
+$('btnCam').onclick = async () => {
+  const on = !$('camBox').classList.contains('on');
+  $('camBox').classList.toggle('on', on);
+  $('btnCam').setAttribute('aria-pressed', on);
+  $('btnCam').textContent = on ? 'Fechar câmera' : 'Câmera';
+  if(on) await startCam(); else await stopCam();
+  focusScan();
+};
+
+$('btnRedo').onclick = () => { if(!S.pending) return; S.pending = null; lastCode = ''; save(); renderRead(); toast('Leia o serial novamente'); focusScan(); };
+
+/* câmera */
+function camMsg(txt){ $('camMsgTxt').textContent = txt; $('camMsg').classList.add('on'); }
+function camOk(){ $('camMsg').classList.remove('on'); }
+
+async function startCam(){
+  if(typeof Html5Qrcode === 'undefined'){ camMsg('Leitor de câmera não carregou. Use a foto ou digite o código.'); return; }
+  camMsg('Abrindo câmera…');
+  try{
+    if(!qr){
+      const F = Html5QrcodeSupportedFormats;
+      qr = new Html5Qrcode('reader', { verbose:false,
+        formatsToSupport:[F.QR_CODE,F.CODE_128,F.CODE_39,F.CODE_93,F.EAN_13,F.EAN_8,F.UPC_A,F.UPC_E,F.ITF,F.CODABAR,F.DATA_MATRIX],
+        experimentalFeatures:{ useBarCodeDetectorIfSupported:true } });
+    }
+    if(qr.isScanning) { camOk(); return; }
+    await qr.start({ facingMode:'environment' }, { fps:12, disableFlip:true }, txt => handleCode(txt), () => {});
+    camOk(); setupTorch();
+  }catch(err){
+    camMsg('Não foi possível abrir a câmera aqui. Permita o acesso à câmera ou use o botão Foto. O coletor continua funcionando normalmente.');
+  }
+}
+async function stopCam(){
+  try{ if(qr && qr.isScanning) await qr.stop(); }catch(e){}
+  $('btnTorch').classList.add('hidden'); torchOn = false;
+}
+function setupTorch(){
+  try{
+    const t = qr.getRunningTrackCameraCapabilities().torchFeature();
+    if(t.isSupported()){
+      const b = $('btnTorch'); b.classList.remove('hidden');
+      b.onclick = async () => { torchOn = !torchOn; try{ await t.apply(torchOn); b.textContent = torchOn ? 'Apagar lanterna' : 'Lanterna'; }catch(e){} };
+    }
+  }catch(e){}
+}
+$('btnCamRetry').onclick = startCam;
+$('photoIn').addEventListener('change', async e => {
+  const f = e.target.files && e.target.files[0]; e.target.value = '';
+  if(!f) return;
+  try{
+    await stopCam();
+    const tmp = qr || new Html5Qrcode('reader', { verbose:false });
+    qr = tmp;
+    const txt = await tmp.scanFile(f, false);
+    lastCode = ''; handleCode(txt);
+    if($('camBox').classList.contains('on')) startCam();
+  }catch(err){ beep(false); toast('Nenhum código encontrado na foto. Aproxime e tente de novo.', 'err'); }
+  focusScan();
+});
+
+function startReading(){
+  S.status = 'reading'; save(); qMov(S);
+  renderRead(); show('scrRead');
+  scanIn.value = '';
+  if($('camBox').classList.contains('on')) startCam();
+  setTimeout(() => { focusScan(); setScanState(); }, 80);
+}
+
+/* pausar / terminar */
+$('btnPause').onclick = async () => {
+  S.status = 'paused'; save(); qMov(S); await stopCam();
+  $('camBox').classList.remove('on'); $('btnCam').setAttribute('aria-pressed', false); $('btnCam').textContent = 'Câmera';
+  const v = await dialog('Leitura pausada', 'Movimento ' + S.mov + ' · ' + S.pairs.length + ' ' + unitLbl(S) + '. Tudo fica salvo neste aparelho, mesmo se fechar a página.', [
+    {label:'Continuar leitura', v:'go', cls:'btn-primary'},
+    {label:'Terminar movimento', v:'end', cls:'btn-navy'},
+    {label:'Editar nome do movimento', v:'ren'},
+    {label:'Sair para o início', v:'home'}]);
+  if(v === 'ren'){ await renameMov(S); save(); $('btnPause').onclick(); return; }
+  if(v === 'go'){ startReading(); }
+  else if(v === 'end'){ finish(); }
+  else { renderHome(); show('scrMov'); }
+};
+$('btnFinish').onclick = () => finish();
+
+/* ---------- editar nome do movimento ---------- */
+async function renameMov(m){
+  const v = await dialog('Editar nome do movimento', 'Atual: ' + m.mov + '. Digite o novo nº do movimento / cód. do produto.', [
+    {label:'Salvar', v:true, cls:'btn-primary'}, {label:'Cancelar', v:false}],
+    { input:true, value:m.mov, inputmode:'text', caps:true, placeholder:'Ex.: 104587 ou 02SW002ADI' });
+  const nv = (dialog.val || '').trim().slice(0, 40);
+  if(!v || !nv || nv === m.mov) return false;
+  const now = Date.now();
+  m.mov = nv; m.renamedAt = now;
+  const cur = store.get(K_CUR, null);
+  if(cur && cur.id === m.id){ cur.mov = nv; cur.renamedAt = now; store.set(K_CUR, cur); }
+  const hist = store.get(K_HIST, []);
+  const hl = hist.find(x => x.id === m.id);
+  if(hl){ hl.mov = nv; hl.renamedAt = now; store.set(K_HIST, hist); }
+  const rem = store.get(K_REM, null);
+  if(rem){ const r = rem.movs.find(x => x.id === m.id); if(r){ r.mov = nv; r.upd = now; store.set(K_REM, rem); } }
+  enqueue({ t:'ren', id:m.id, mov:nv });
+  toast('Nome alterado para ' + nv, 'ok');
+  return true;
+}
+$('btnRen').onclick = async () => { if(S && !S.multi && await renameMov(S)) renderEnd(); };
+
+async function finish(){
+  await stopCam();
+  if(S.pending){
+    const v = await dialog('Serial sem etiqueta', 'O serial ' + S.pending.serial + ' ainda não foi amarrado a uma etiqueta.', [
+      {label:'Voltar e ler a etiqueta', v:'back', cls:'btn-primary'},
+      {label:'Descartar esse serial e terminar', v:'drop', cls:'btn-danger'}]);
+    if(v === 'back'){ startReading(); return; }
+    S.pending = null;
+  }
+  const ok = await dialog('Terminar movimento ' + S.mov + '?', S.pairs.length + ' ' + unitLbl(S) + ' serão fechados para exportação.', [
+    {label:'Terminar', v:true, cls:'btn-navy'}, {label:'Cancelar', v:false}]);
+  if(!ok){ if(S.status === 'reading') startReading(); else { renderHome(); show('scrMov'); } return; }
+  S.status = 'done'; S.finished = Date.now(); qMov(S);
+  const hist = store.get(K_HIST, []).filter(h => h.id !== S.id);
+  hist.unshift(S); store.set(K_HIST, hist.slice(0, 30));
+  store.del(K_CUR);
+  renderEnd(); show('scrEnd');
+  setTimeout(loadRemote, 1500);
+}
+
+/* ---------- tela 3 ---------- */
+function ranges(arr){
+  const out = []; let s = null, p = null;
+  arr.forEach(v => { if(s === null){ s = p = v; } else if(v === p + 1){ p = v; } else { out.push(s === p ? '' + s : s + '-' + p); s = p = v; } });
+  if(s !== null) out.push(s === p ? '' + s : s + '-' + p);
+  return out.join(', ');
+}
+function nfSummary(){
+  const m = new Map();
+  S.pairs.forEach(p => {
+    const i = info(p); if(i.nfe == null) return;
+    if(!m.has(i.nfe)) m.set(i.nfe, { nfe:i.nfe, tot:i.tot, vols:new Set() });
+    m.get(i.nfe).vols.add(i.vol);
+  });
+  return [...m.values()].sort((a,b) => a.nfe - b.nfe).map(r => {
+    const max = Math.max(...r.vols), gaps = [];
+    for(let v = 1; v < max; v++) if(!r.vols.has(v)) gaps.push(v);
+    return { nfe:r.nfe, tot:r.tot, lidos:r.vols.size, max, gaps, gapTxt:ranges(gaps),
+             pendTxt: max < r.tot ? (max + 1 === r.tot ? '' + r.tot : (max + 1) + '-' + r.tot) : '',
+             faltam: r.tot - r.vols.size };
+  });
+}
+/* linhas da listagem: ordem de leitura, ou NF-e + volume com as faltas intercaladas */
+function rowsFor(pairs, ctx){
+  if(sortMode !== 'vol') return pairs.map(p => ({ p }));
+  const all = pairs.map(p => ({ p, i:info(p) }));
+  const known = all.filter(r => r.i.nfe != null).sort((a,b) => a.i.nfe - b.i.nfe || a.i.vol - b.i.vol);
+  const out = []; let prev = null;
+  // sem ctx: falta = não lido neste movimento; com ctx (conjunto): só o que não foi lido em NENHUM movimento, sem repetir
+  const gap = (nfe, tot, from, to, tail) => {
+    if(from > to) return;
+    if(!ctx){ out.push({ gap:true, tail, nfe, tot, from, to }); return; }
+    const have = ctx.all[nfe], done = ctx.done[nfe] || (ctx.done[nfe] = new Set());
+    let s = null;
+    for(let v = from; v <= to + 1; v++){
+      const miss = v <= to && !have.has(v) && !done.has(v);
+      if(miss){ done.add(v); if(s === null) s = v; }
+      else if(s !== null){ out.push({ gap:true, tail, nfe, tot, from:s, to:v - 1 }); s = null; }
+    }
+  };
+  const isLast = r => !ctx || ctx.max[r.i.nfe] === r.i.vol;
+  known.forEach(r => {
+    if(!prev || prev.i.nfe !== r.i.nfe){
+      if(prev && isLast(prev)) gap(prev.i.nfe, prev.i.tot, prev.i.vol + 1, prev.i.tot, true);
+      gap(r.i.nfe, r.i.tot, 1, r.i.vol - 1, false);
+    } else gap(r.i.nfe, r.i.tot, prev.i.vol + 1, r.i.vol - 1, false);
+    out.push({ p:r.p }); prev = r;
+  });
+  if(prev && isLast(prev)) gap(prev.i.nfe, prev.i.tot, prev.i.vol + 1, prev.i.tot, true);
+  all.filter(r => r.i.nfe == null).forEach(r => out.push({ p:r.p }));
+  return out;
+}
+/* numera as linhas na ordem impressa (recomeça em cada movimento) */
+function numbered(rows){ let k = 0; rows.forEach(r => { if(r.head) k = 0; else if(r.p) r.seq = ++k; }); return rows; }
+function orderedRows(){
+  if(!S.multi) return numbered(rowsFor(S.pairs, null));
+  const ctx = { all:{}, max:{}, done:{} };
+  S.pairs.forEach(p => { const i = info(p); if(i.nfe == null) return;
+    (ctx.all[i.nfe] = ctx.all[i.nfe] || new Set()).add(i.vol);
+    ctx.max[i.nfe] = Math.max(ctx.max[i.nfe] || 0, i.vol); });
+  const out = [];
+  S.multi.forEach(m => {
+    const ps = S.pairs.filter(p => p.mid === m.id);
+    out.push({ head:true, m, qtd:ps.length });
+    rowsFor(ps, ctx).forEach(r => out.push(r));
+  });
+  return numbered(out);
+}
+function groupsOf(rows){
+  const gs = [];
+  rows.forEach(r => { if(r.head) gs.push({ h:r, rows:[] }); else if(gs.length) gs[gs.length - 1].rows.push(r); });
+  return gs;
+}
+/* NF-e e volumes lidos em um conjunto de leituras: "NF-e 12252: vol 1-2, 4 (3 de 8)" */
+function nfVolsTxt(pairs, sep){
+  const m = new Map();
+  pairs.forEach(p => { const i = info(p); if(i.nfe == null) return;
+    if(!m.has(i.nfe)) m.set(i.nfe, { tot:i.tot, v:new Set() }); m.get(i.nfe).v.add(i.vol); });
+  return [...m.entries()].sort((a,b) => a[0] - b[0]).map(([nfe, o]) => {
+    const v = [...o.v].sort((a,b) => a - b);
+    return 'NF-e ' + nfe + ': vol ' + ranges(v) + ' (' + v.length + ' de ' + o.tot + ')';
+  }).join(sep || '\n') || '—';
+}
+const hm = t => t ? new Date(t).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+function headTxt(r){
+  return 'MOVIMENTO ' + r.m.mov + '  ·  ' + r.qtd + ' ' + (r.m.mode === 'uni' ? 'leituras' : 'pares') +
+    (r.m.dev ? '  ·  ' + r.m.dev : '') + '  ·  ' + hm(r.m.started) + ' a ' + hm(r.m.finished);
+}
+function gapTxt(g){
+  const n = g.to - g.from + 1;
+  const vols = n === 1 ? 'volume ' + g.from + '/' + g.tot : 'volumes ' + g.from + ' a ' + g.to + ' de ' + g.tot + ' (' + n + ')';
+  return (g.tail ? 'NÃO LIDOS APÓS O ÚLTIMO · ' : 'FALTA · ') + 'NF-e ' + g.nfe + ' · ' + vols;
+}
+const MO = () => 0;   // na exportação conjunta cada movimento tem cabeçalho próprio (sem coluna extra)
+const movLbl = (max) => { const t = S.multi ? S.multi.map(m => m.mov).join(', ') : String(S.mov); return max && t.length > max ? t.slice(0, max - 1) + '…' : t; };
+function cols(){
+  const c = isUni() ? ['#','Código','NF-e','Volume','Data/hora'] : ['#','Serial','NF-e','Volume','Etiqueta interna','Data/hora'];
+  if(MO()) c.splice(1, 0, 'Movimento');
+  return c;
+}
+function rowVals(p, full, seq){
+  const i = info(p), t = full ? fmt(p.ts) : fmtShort(p.ts);
+  p = Object.assign({}, p, { n: seq != null ? seq : p.n });
+  const v = isUni() ? [p.n, p.etiqueta, i.nfe ?? '—', volTxt(i), t] : [p.n, p.serial || '—', i.nfe ?? '—', volTxt(i), p.etiqueta, t];
+  if(MO()) v.splice(1, 0, p.mov);
+  return v;
+}
+function renderEnd(){
+  $('enMov').textContent = S.multi ? S.multi.length + ' movimentos' : S.mov;
+  $('enCount').textContent = S.pairs.length;
+  $('enCountLbl').textContent = isUni() ? 'Leituras' : 'Pares';
+  $('enPeriod').textContent = fmt(S.started) + '  até  ' + (S.finished ? fmt(S.finished) : 'em andamento');
+  const note = $('enNote');
+  if(S.multi){
+    note.classList.remove('hidden');
+    note.textContent = 'Exportação conjunta: ' + S.multi.map(m => m.mov + ' (' + m.qtd + ')' + (m.status !== 'done' ? ' em andamento' : '')).join(' · ');
+  } else if(S.remote){
+    note.classList.remove('hidden');
+    note.textContent = 'Movimento do aparelho ' + (S.dev || '—') + ', carregado da planilha' +
+      (S.status !== 'done' ? '. Ainda está ' + (ST_TXT[S.status] || S.status).toLowerCase() + ' lá: estes são os dados até agora.' : '.');
+  } else note.classList.add('hidden');
+  $('btnReopen').classList.toggle('hidden', !!S.remote);
+  $('btnDelMov').classList.toggle('hidden', !!S.multi);
+  $('btnRen').classList.toggle('hidden', !!S.multi);
+  $('btnNew').textContent = S.multi ? 'Voltar ao início' : 'Novo movimento';
+  const ns = nfSummary();
+  $('enNf').innerHTML = ns.length ? ns.map(r =>
+    '<li><b>NF-e ' + r.nfe + '</b><span class="' + (r.faltam === 0 ? 'full' : '') + '">' + r.lidos + ' de ' + r.tot + ' volumes' + (r.faltam === 0 ? ' · completa' : '') + '</span>' +
+    (r.gapTxt ? '<div class="gaps">Faltas intermediárias: vol ' + r.gapTxt + '</div>' : '') +
+    (r.pendTxt ? '<div class="pend">Não lidos após o vol ' + r.max + ': ' + r.pendTxt + '</div>' : '') + '</li>').join('')
+    : '<li class="empty">Nenhuma etiqueta com NF-e identificada.</li>';
+  const c = cols();
+  $('enHead').innerHTML = '<tr>' + c.map(t => '<th>' + t + '</th>').join('') + '</tr>';
+  const rows = orderedRows();
+  $('enBody').innerHTML = rows.length ? rows.map(r => r.head
+      ? '<tr class="mhead"><td colspan="' + c.length + '">MOVIMENTO ' + esc(r.m.mov) + ' <span>· ' + r.qtd + ' ' + (r.m.mode === 'uni' ? 'leituras' : 'pares') + (r.m.dev ? ' · ' + esc(r.m.dev) : '') + ' · ' + hm(r.m.started) + ' a ' + hm(r.m.finished) + '</span></td></tr>'
+      : r.gap
+      ? '<tr class="gap' + (r.tail ? ' tail' : '') + '"><td colspan="' + c.length + '">' + esc(gapTxt(r)) + '</td></tr>'
+      : '<tr>' + rowVals(r.p, false, r.seq).map((v,k) => '<td>' + (k === 3 + MO() ? '<b>' + esc(v) + '</b>' : esc(v)) + '</td>').join('') + '</tr>').join('')
+    : '<tr><td colspan="' + c.length + '" style="text-align:left;color:var(--muted)">Nada lido.</td></tr>';
+}
+document.querySelectorAll('.seg').forEach(g => g.querySelectorAll('button').forEach(b => b.onclick = () => {
+  if(b.dataset.o) orient = b.dataset.o;
+  if(b.dataset.f) ffmt = b.dataset.f;
+  if(b.dataset.m) newMode = b.dataset.m;
+  if(b.dataset.s){ sortMode = b.dataset.s; if(S) renderEnd(); }
+  g.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+}));
+$('btnDelMov').onclick = () => deleteMov(S);
+$('btnNew').onclick = () => { S = null; renderHome(); show('scrMov'); loadRemote(); setTimeout(() => $('movInput').focus(), 50); };
+$('btnReopen').onclick = async () => {
+  if(store.get(K_CUR, null) && store.get(K_CUR).id !== S.id){ toast('Já existe outro movimento em aberto', 'err'); return; }
+  const hist = store.get(K_HIST, []).filter(h => h.id !== S.id);
+  store.set(K_HIST, hist);
+  S.finished = null; startReading();
+};
+
+/* ---------- downloads (claude.ai ou navegador comum) ---------- */
+const dlReady = (window.claude && typeof window.claude.use === 'function') ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null);
+async function saveFile(name, blob){
+  const dl = await dlReady;
+  if(dl){
+    try{ await dl.save({ filename:name, data:blob }); toast('Arquivo salvo', 'ok'); return true; }
+    catch(e){ if(e && e.code !== 'declined') toast('Não foi possível salvar o arquivo aqui', 'err'); return false; }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  return true;
+}
+const fileBase = () => (S.multi ? 'PORTOEX_' + S.multi.length + 'Movs_' + S.multi.slice(0,3).map(m => m.mov).join('_').replace(/[^\w-]+/g,'_').slice(0,40) : 'PORTOEX_Mov_' + String(S.mov).replace(/[^\w-]+/g,'_')) + '_' + new Date(S.finished || Date.now()).toISOString().slice(0,10);
+
+/* ---------- PDF ---------- */
+function buildPdf(){
+  if(!window.jspdf) throw new Error('Gerador de PDF não carregou. Verifique a internet.');
+  const { jsPDF } = window.jspdf;
+  const land = orient === 'l';
+  const doc = new jsPDF({ orientation: land ? 'landscape' : 'portrait', unit:'mm', format:'a4' });
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 10;
+  const unit = isUni() ? 'leituras' : 'pares';
+  let T = { left:'', right:'' };            // linha de identificação no topo de cada página
+  const head = () => {
+    doc.setFillColor(26,58,110); doc.rect(0,0,W,20,'F');
+    doc.setFillColor(232,97,26); doc.rect(0,20,W,1.6,'F');
+    doc.setTextColor(255); doc.setFont('helvetica','bold'); doc.setFontSize(17); doc.text('PORTOEX', M, 12.5);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.text(isUni() ? 'Estoque · Leitura de códigos' : 'Estoque · Conferência Serial × Etiqueta interna', W - M, 12.5, {align:'right'});
+    doc.setTextColor(20,33,58); doc.setFontSize(10);
+    doc.setFont('helvetica','bold'); doc.text(T.left, M, 29);
+    doc.setFont('helvetica','normal'); doc.text(T.right, W - M, 29, {align:'right'});
+  };
+  const base = {
+    margin:{ top:34, left:M, right:M, bottom:16 },
+    styles:{ font:'helvetica', fontSize:land?9:8, cellPadding:1.8, textColor:[20,33,58], lineColor:[213,219,230], lineWidth:.2, overflow:'linebreak' },
+    headStyles:{ fillColor:[26,58,110], textColor:255, fontStyle:'bold' },
+    alternateRowStyles:{ fillColor:[243,245,249] },
+    didDrawPage: head
+  };
+  const c = cols(), last = c.length - 1;
+  const cs = { 0:{ cellWidth:9, halign:'right' }, 2:{ cellWidth:land?22:16, halign:'right' }, 3:{ cellWidth:land?22:17, halign:'center', fontStyle:'bold' } };
+  cs[last] = { cellWidth:land?36:30 };
+  const table = (rows, y) => doc.autoTable(Object.assign({}, base, {
+    head:[c],
+    body:rows.map(r => r.gap
+      ? [{ content:gapTxt(r), colSpan:c.length, styles:{ fillColor:r.tail ? [255,241,231] : [251,229,226], textColor:r.tail ? [150,70,20] : [170,35,25], fontStyle:'bold', halign:'left' } }]
+      : rowVals(r.p, true, r.seq)),
+    startY:y, columnStyles:cs
+  }));
+  const nfTable = y => {
+    const ns = nfSummary();
+    if(!ns.length) return y;
+    if(y > H - 40){ doc.addPage(); head(); y = 34; }
+    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(20,33,58); doc.text('Resumo por NF-e', M, y);
+    doc.autoTable(Object.assign({}, base, {
+      head:[['NF-e','Lidos','Total','Faltas intermediárias','Não lidos após o último']],
+      body:ns.map(r => [r.nfe, r.lidos, r.tot, r.gapTxt || (r.faltam === 0 ? 'Completa' : '—'), r.pendTxt || '—']),
+      startY:y + 2,
+      columnStyles:{ 0:{halign:'right', cellWidth:20}, 1:{halign:'right', cellWidth:15}, 2:{halign:'right', cellWidth:15}, 3:{ textColor:[170,35,25], fontStyle:'bold' } }
+    }));
+    return doc.lastAutoTable.finalY;
+  };
+  const sign = y => {
+    y += 22;
+    if(y > H - 24){ doc.addPage(); head(); y = 56; }
+    const colW = (W - 2*M - 20) / 2;
+    doc.setDrawColor(20,33,58); doc.setLineWidth(.3); doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(20,33,58);
+    doc.line(M, y, M + colW, y); doc.text('Conferente', M, y + 5);
+    doc.line(W - M - colW, y, W - M, y); doc.text('Responsável pelo estoque', W - M - colW, y + 5);
+  };
+
+  if(!S.multi){
+    T = { left:'Movimento: ' + S.mov, right:S.pairs.length + ' ' + unit + '   ·   ' + fmt(S.started) + ' a ' + fmt(S.finished) };
+    head();
+    table(orderedRows(), 34);
+    sign(nfTable(doc.lastAutoTable.finalY + 8));
+  } else {
+    // uma folha (ou mais, se não couber) para cada movimento
+    groupsOf(orderedRows()).forEach((g, i) => {
+      if(i) doc.addPage();
+      const m = g.h.m;
+      T = { left:'Movimento: ' + m.mov, right:g.h.qtd + ' ' + (m.mode === 'uni' ? 'leituras' : 'pares') + (m.dev ? '  ·  ' + m.dev : '') + '  ·  ' + hm(m.started) + ' a ' + hm(m.finished) };
+      head();
+      table(g.rows, 34);
+      const y = doc.lastAutoTable.finalY + 6;
+      if(y < H - 22){
+        doc.setFontSize(8.5); doc.setTextColor(91,104,130); doc.setFont('helvetica','normal');
+        doc.text(doc.splitTextToSize(nfVolsTxt(S.pairs.filter(p => p.mid === m.id), '   |   '), W - 2*M), M, y);
+      }
+    });
+    // última folha: resumo de tudo o que foi impresso
+    doc.addPage();
+    T = { left:'RESUMO DA IMPRESSÃO', right:S.multi.length + ' movimentos  ·  ' + S.pairs.length + ' ' + unit + '  ·  ' + fmt(S.started) + ' a ' + fmt(S.finished) };
+    head();
+    doc.autoTable(Object.assign({}, base, {
+      head:[['#','Movimento','Tipo','Aparelho','Período','Leituras','NF-e / volumes lidos']],
+      body:S.multi.map((m, i) => {
+        const ps = S.pairs.filter(p => p.mid === m.id);
+        return [i + 1, m.mov, m.mode === 'uni' ? 'Código único' : 'Serial + Etiqueta', m.dev || '—', hm(m.started) + ' a ' + hm(m.finished), ps.length, nfVolsTxt(ps)];
+      }).concat([[{ content:'TOTAL', colSpan:5, styles:{ fontStyle:'bold', halign:'right' } }, { content:String(S.pairs.length), styles:{ fontStyle:'bold' } }, '']]),
+      startY:34,
+      columnStyles:{ 0:{ cellWidth:8, halign:'right' }, 1:{ fontStyle:'bold' }, 5:{ cellWidth:16, halign:'right' }, 6:{ cellWidth:land?80:55 } }
+    }));
+    sign(nfTable(doc.lastAutoTable.finalY + 8));
+  }
+  const total = doc.internal.getNumberOfPages();
+  for(let i = 1; i <= total; i++){
+    doc.setPage(i); doc.setFontSize(8); doc.setTextColor(91,104,130);
+    doc.text('Gerado em ' + fmt(Date.now()), M, H - 7);
+    doc.text('Página ' + i + ' de ' + total, W - M, H - 7, {align:'right'});
+  }
+  return { blob: doc.output('blob'), name: fileBase() + '.pdf', type:'application/pdf' };
+}
+
+/* ---------- XLSX com configuração de impressão A4 ---------- */
+const x = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function cS(ref, v, s){ return '<c r="'+ref+'" t="inlineStr" s="'+s+'"><is><t xml:space="preserve">'+x(v)+'</t></is></c>'; }
+function cN(ref, v, s){ return v == null || v === '' ? cS(ref,'—',s) : '<c r="'+ref+'" s="'+s+'"><v>'+v+'</v></c>'; }
+
+async function buildXlsx(){
+  if(!window.JSZip) throw new Error('Gerador de Excel não carregou. Verifique a internet.');
+  const land = orient === 'l';
+  const c = cols(), L = 'ABCDEFG', lastC = L[c.length - 1], mo = MO();
+  const rows = [], merges = ['A1:'+lastC+'1','A2:'+lastC+'2','A3:'+lastC+'3'];
+  rows.push('<row r="1" ht="24" customHeight="1">'+cS('A1',isUni() ? 'PORTOEX · Leitura de códigos' : 'PORTOEX · Conferência Serial × Etiqueta interna',1)+'</row>');
+  rows.push('<row r="2">'+cS('A2',(S.multi ? 'Movimentos ('+S.multi.length+'): ' : 'Movimento: ')+movLbl()+'     '+(isUni() ? 'Leituras: ' : 'Pares: ')+S.pairs.length,5)+'</row>');
+  rows.push('<row r="3">'+cS('A3','Início: '+fmt(S.started)+'     Fim: '+fmt(S.finished),5)+'</row>');
+  const colHead = rr => '<row r="'+rr+'" ht="20" customHeight="1">'+c.map((t,k) => cS(L[k]+rr, k === c.length - 1 ? 'Data/hora da leitura' : t, 2)).join('')+'</row>';
+  const dataRow = (o, rr) => o.gap
+    ? (merges.push('A'+rr+':'+lastC+rr), '<row r="'+rr+'">'+cS('A'+rr, gapTxt(o), o.tail ? 9 : 8)+'</row>')
+    : '<row r="'+rr+'">'+rowVals(o.p, true, o.seq).map((v,k) =>
+        (k === 0 || k === 2) ? cN(L[k]+rr, v === '—' ? null : v, 4) : cS(L[k]+rr, v, k === 3 ? 6 : 3)).join('')+'</row>';
+  const breaks = [];
+  let r;
+  if(!S.multi){
+    rows.push(colHead(5));
+    r = 6;
+    orderedRows().forEach(o => { rows.push(dataRow(o, r)); r++; });
+    r += 2;
+  } else {
+    r = 5;
+    groupsOf(orderedRows()).forEach(g => {
+      rows.push('<row r="'+r+'" ht="22" customHeight="1">'+cS('A'+r, headTxt(g.h), 11)+'</row>'); merges.push('A'+r+':'+lastC+r); r++;
+      rows.push(colHead(r)); r++;
+      g.rows.forEach(o => { rows.push(dataRow(o, r)); r++; });
+      rows.push('<row r="'+r+'">'+cS('A'+r, nfVolsTxt(S.pairs.filter(p => p.mid === g.h.m.id), '   |   '), 5)+'</row>'); merges.push('A'+r+':'+lastC+r);
+      breaks.push(r);                         // próxima parte começa em folha nova
+      r++;
+    });
+    // folha final: resumo de tudo o que foi impresso
+    rows.push('<row r="'+r+'" ht="24" customHeight="1">'+cS('A'+r,'RESUMO DA IMPRESSÃO · '+S.multi.length+' movimentos · '+S.pairs.length+' '+(isUni() ? 'leituras' : 'pares'),1)+'</row>'); merges.push('A'+r+':F'+r); r++;
+    rows.push('<row r="'+r+'">'+cS('A'+r,'Período: '+fmt(S.started)+' a '+fmt(S.finished),5)+'</row>'); merges.push('A'+r+':F'+r); r += 2;
+    rows.push('<row r="'+r+'" ht="20" customHeight="1">'+['#','Movimento','Leituras','Aparelho','NF-e / volumes lidos','Período'].map((t,k) => cS(L[k]+r, t, 2)).join('')+'</row>'); r++;
+    S.multi.forEach((m, i) => {
+      const ps = S.pairs.filter(p => p.mid === m.id);
+      rows.push('<row r="'+r+'">'+cN('A'+r, i + 1, 4)+cS('B'+r, m.mov, 3)+cN('C'+r, ps.length, 4)+cS('D'+r, m.dev || '—', 3)+cS('E'+r, nfVolsTxt(ps), 12)+cS('F'+r, hm(m.started)+' a '+hm(m.finished), 12)+'</row>'); r++;
+    });
+    rows.push('<row r="'+r+'">'+cS('B'+r,'TOTAL',7)+cN('C'+r, S.pairs.length, 4)+'</row>');
+    r += 3;
+  }
+  const ns = nfSummary();
+  if(ns.length){
+    rows.push('<row r="'+r+'">'+cS('B'+r,'Resumo por NF-e',7)+'</row>'); r++;
+    rows.push('<row r="'+r+'">'+cS('B'+r,'NF-e',2)+cS('C'+r,'Lidos',2)+cS('D'+r,'Total',2)+cS('E'+r,'Faltas intermediárias',2)+cS('F'+r,'Não lidos após o último',2)+'</row>'); r++;
+    ns.forEach(n => { rows.push('<row r="'+r+'">'+cN('B'+r,n.nfe,4)+cN('C'+r,n.lidos,4)+cN('D'+r,n.tot,4)+cS('E'+r,n.gapTxt || (n.faltam === 0 ? 'Completa' : '—'),n.gapTxt ? 10 : 3)+cS('F'+r,n.pendTxt || '—',3)+'</row>'); r++; });
+    r += 2;
+  } else r += 1;
+  rows.push('<row r="'+r+'">'+cS('B'+r,'______________________________',5)+cS('E'+r,'______________________________',5)+'</row>');
+  rows.push('<row r="'+(r+1)+'">'+cS('B'+(r+1),'Conferente',5)+cS('E'+(r+1),'Responsável pelo estoque',5)+'</row>');
+  const last = r + 1;
+  const colsXml = mo ? (isUni()
+    ? '<col min="1" max="1" width="6" customWidth="1"/><col min="2" max="2" width="16" customWidth="1"/><col min="3" max="3" width="'+(land?40:32)+'" customWidth="1"/><col min="4" max="5" width="11" customWidth="1"/><col min="6" max="6" width="'+(land?24:21)+'" customWidth="1"/>'
+    : '<col min="1" max="1" width="6" customWidth="1"/><col min="2" max="2" width="14" customWidth="1"/><col min="3" max="3" width="'+(land?18:15)+'" customWidth="1"/><col min="4" max="5" width="10" customWidth="1"/><col min="6" max="6" width="'+(land?36:32)+'" customWidth="1"/><col min="7" max="7" width="'+(land?21:19)+'" customWidth="1"/>')
+    : isUni()
+    ? '<col min="1" max="1" width="6" customWidth="1"/><col min="2" max="2" width="'+(land?46:38)+'" customWidth="1"/><col min="3" max="4" width="11" customWidth="1"/><col min="5" max="5" width="'+(land?24:21)+'" customWidth="1"/><col min="6" max="6" width="24" customWidth="1"/>'
+    : '<col min="1" max="1" width="6" customWidth="1"/><col min="2" max="2" width="'+(land?20:16)+'" customWidth="1"/><col min="3" max="4" width="11" customWidth="1"/><col min="5" max="5" width="'+(land?38:34)+'" customWidth="1"/><col min="6" max="6" width="'+(land?21:19)+'" customWidth="1"/>';
+
+  const sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+  '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'+
+  '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'+
+  '<dimension ref="A1:'+(mo && !isUni() ? 'G' : 'F')+last+'"/>'+
+  '<sheetViews><sheetView workbookViewId="0" tabSelected="1">'+(S.multi ? '' : '<pane ySplit="5" topLeftCell="A6" activePane="bottomLeft" state="frozen"/>')+'</sheetView></sheetViews>'+
+  '<sheetFormatPr defaultRowHeight="15"/>'+
+  '<cols>'+colsXml+'</cols>'+
+  '<sheetData>'+rows.join('')+'</sheetData>'+
+  '<mergeCells count="'+merges.length+'">'+merges.map(m => '<mergeCell ref="'+m+'"/>').join('')+'</mergeCells>'+
+  '<printOptions horizontalCentered="1"/>'+
+  '<pageMargins left="0.4" right="0.4" top="0.6" bottom="0.6" header="0.3" footer="0.3"/>'+
+  '<pageSetup paperSize="9" orientation="'+(land?'landscape':'portrait')+'" fitToWidth="1" fitToHeight="0"/>'+
+  '<headerFooter><oddFooter>&amp;L&amp;8PORTOEX · Movimento '+x(movLbl(60))+'&amp;R&amp;8Página &amp;P de &amp;N</oddFooter></headerFooter>'+
+  (breaks.length ? '<rowBreaks count="'+breaks.length+'" manualBreakCount="'+breaks.length+'">'+breaks.map(b => '<brk id="'+b+'" max="16383" man="1"/>').join('')+'</rowBreaks>' : '')+
+  '</worksheet>';
+
+  const styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+  '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+
+  '<fonts count="8"><font><sz val="11"/><name val="Calibri"/></font>'+
+  '<font><b/><sz val="15"/><color rgb="FF1A3A6E"/><name val="Calibri"/></font>'+
+  '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>'+
+  '<font><sz val="10"/><color rgb="FF14213A"/><name val="Calibri"/></font>'+
+  '<font><b/><sz val="10"/><color rgb="FF14213A"/><name val="Calibri"/></font>'+
+  '<font><b/><sz val="12"/><color rgb="FF1A3A6E"/><name val="Calibri"/></font>'+
+  '<font><b/><sz val="10"/><color rgb="FFAA2319"/><name val="Calibri"/></font>'+
+  '<font><b/><sz val="10"/><color rgb="FF964614"/><name val="Calibri"/></font></fonts>'+
+  '<fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'+
+  '<fill><patternFill patternType="solid"><fgColor rgb="FF1A3A6E"/><bgColor indexed="64"/></patternFill></fill>'+
+  '<fill><patternFill patternType="solid"><fgColor rgb="FFFBE5E2"/><bgColor indexed="64"/></patternFill></fill>'+
+  '<fill><patternFill patternType="solid"><fgColor rgb="FFFFF1E7"/><bgColor indexed="64"/></patternFill></fill></fills>'+
+  '<borders count="3"><border><left/><right/><top/><bottom/><diagonal/></border>'+
+  '<border><left style="thin"><color rgb="FFD5DBE6"/></left><right style="thin"><color rgb="FFD5DBE6"/></right><top style="thin"><color rgb="FFD5DBE6"/></top><bottom style="thin"><color rgb="FFD5DBE6"/></bottom><diagonal/></border>'+
+  '<border><left/><right/><top/><bottom style="medium"><color rgb="FFE8611A"/></bottom><diagonal/></border></borders>'+
+  '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'+
+  '<cellXfs count="13">'+
+  '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'+
+  '<xf numFmtId="0" fontId="1" fillId="0" borderId="2" xfId="0" applyFont="1" applyBorder="1"><alignment vertical="center"/></xf>'+
+  '<xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'+
+  '<xf numFmtId="49" fontId="3" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/>'+
+  '<xf numFmtId="1" fontId="3" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right"/></xf>'+
+  '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>'+
+  '<xf numFmtId="49" fontId="4" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>'+
+  '<xf numFmtId="0" fontId="5" fillId="0" borderId="0" xfId="0" applyFont="1"/>'+
+  '<xf numFmtId="49" fontId="6" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>'+
+  '<xf numFmtId="49" fontId="7" fillId="4" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>'+
+  '<xf numFmtId="49" fontId="6" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>'+
+  '<xf numFmtId="49" fontId="2" fillId="2" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>'+
+  '<xf numFmtId="49" fontId="3" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>'+
+  '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+
+  const zip = new JSZip();
+  zip.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>');
+  zip.file('_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+  zip.file('xl/workbook.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Leitura" sheetId="1" r:id="rId1"/></sheets>'+(S.multi ? '' : '<definedNames><definedName name="_xlnm.Print_Titles" localSheetId="0">Leitura!$5:$5</definedName></definedNames>')+'</workbook>');
+  zip.file('xl/_rels/workbook.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+  zip.file('xl/worksheets/sheet1.xml', sheet);
+  zip.file('xl/styles.xml', styles);
+  const type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  const blob = await zip.generateAsync({ type:'blob', mimeType:type });
+  return { blob, name: fileBase() + '.xlsx', type };
+}
+
+async function buildFile(){ return ffmt === 'x' ? buildXlsx() : buildPdf(); }
+
+$('btnDown').onclick = async () => {
+  try{ const f = await buildFile(); await saveFile(f.name, f.blob); }
+  catch(e){ toast(e.message || 'Falha ao gerar o arquivo', 'err'); }
+};
+
+/* ---------- WhatsApp ---------- */
+function whatsText(){
+  const ns = nfSummary();
+  let t = '*PORTOEX · ' + (isUni() ? 'Leitura de códigos' : 'Conferência Serial × Etiqueta') + '*\n' + (S.multi ? 'Movimentos (' + S.multi.length + '):\n' + S.multi.map(m => '• *' + m.mov + '* · ' + m.qtd + ' ' + (m.mode === 'uni' ? 'leituras' : unitLbl(S))).join('\n') : 'Movimento: *' + S.mov + '*') + '\n' +
+    (isUni() ? 'Leituras: *' : 'Pares lidos: *') + S.pairs.length + '*\nPeríodo: ' + fmt(S.started) + ' a ' + fmt(S.finished);
+  if(ns.length) t += '\n\n*Resumo por NF-e*\n' + ns.map(r => 'NF-e ' + r.nfe + ': ' + r.lidos + '/' + r.tot +
+    (r.faltam === 0 ? ' ✅' : '') +
+    (r.gapTxt ? '\n   ⚠️ Faltas: vol ' + r.gapTxt : '') +
+    (r.pendTxt ? '\n   Não lidos após o vol ' + r.max + ': ' + r.pendTxt : '')).join('\n');
+  return t;
+}
+$('btnWa').onclick = async () => {
+  let f;
+  try{ f = await buildFile(); }catch(e){ toast(e.message || 'Falha ao gerar o arquivo', 'err'); return; }
+  const text = whatsText();
+  try{
+    const file = new File([f.blob], f.name, { type:f.type });
+    if(navigator.canShare && navigator.canShare({ files:[file] })){
+      await navigator.share({ files:[file], title:f.name, text });
+      return;
+    }
+  }catch(e){ if(e && e.name === 'AbortError') return; }
+  // sem compartilhamento de arquivo: salva o arquivo e abre o WhatsApp com o resumo
+  const ok = await saveFile(f.name, f.blob);
+  const a = document.createElement('a');
+  a.href = 'https://wa.me/?text=' + encodeURIComponent(text + '\n\nArquivo: ' + f.name);
+  a.target = '_blank'; a.rel = 'noopener';
+  document.body.appendChild(a); a.click(); a.remove();
+  if(ok) toast('Arquivo salvo. Anexe ' + f.name + ' na conversa do WhatsApp.', 'ok');
+};
+
+/* salva ao sair / trocar de app */
+document.addEventListener('visibilitychange', () => { if(document.hidden) save(); });
+
+renderHome();
+updateSyncUI(); fbInit();
+setInterval(flush, 15000);
+// qualquer erro inesperado aparece na tela (ajuda a diagnosticar no coletor)
+window.addEventListener('error', ev => { try{ toast('Erro: ' + (ev.message || 'desconhecido') + ' [v2026.10.06-j]', 'err'); }catch(_){} });
+window.addEventListener('online', () => { syncErr = ''; flush(); });
 })();
 </script>
 </body>
