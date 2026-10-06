@@ -4,10 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1A3A6E">
+<meta name="mobile-web-app-capable" content="yes">
 <title>PORTOEX | Controle de Estoque</title>
 <script>
 /* faixa vermelha no topo com qualquer erro de JavaScript (diagnóstico no coletor) */
-window.addEventListener('error',function(e){try{var d=document.getElementById('bootErr');if(!d){d=document.createElement('div');d.id='bootErr';d.style.cssText='position:fixed;left:0;right:0;top:0;z-index:999;background:#C0392B;color:#fff;padding:10px 14px;font:600 14px sans-serif;padding-top:calc(10px + env(safe-area-inset-top,0px))';d.onclick=function(){d.remove();};(document.body||document.documentElement).appendChild(d);}d.textContent='Erro: '+(e.message||'desconhecido')+' (linha '+(e.lineno||'?')+') | v2026.10.06-a | toque para fechar';}catch(_){}});
+window.addEventListener('error',function(e){try{var d=document.getElementById('bootErr');if(!d){d=document.createElement('div');d.id='bootErr';d.style.cssText='position:fixed;left:0;right:0;top:0;z-index:999;background:#C0392B;color:#fff;padding:10px 14px;font:600 14px sans-serif;padding-top:calc(10px + env(safe-area-inset-top,0px))';d.onclick=function(){d.remove();};(document.body||document.documentElement).appendChild(d);}d.textContent='Erro: '+(e.message||'desconhecido')+' (linha '+(e.lineno||'?')+') | v2026.10.06-c | toque para fechar';}catch(_){}});
 window.addEventListener('unhandledrejection',function(e){try{var m=(e.reason&&(e.reason.message||e.reason))||'';if(m)window.dispatchEvent(new ErrorEvent('error',{message:'Promessa: '+m}));}catch(_){}});
 </script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
@@ -244,6 +245,122 @@ table.t tbody tr:hover{background:#F7F9FC}
 .ver{text-align:center;color:var(--muted);font-size:12px;margin:16px 0 0}
 .login-box .st{margin-top:4px}
 @media (max-width:760px){ .chip{font-size:12px;padding:5px 10px} .db-bts .btn{flex:1 1 45%} }
+
+/* ── cards compactos (em andamento / aguardando retirada) ── */
+.cards-and.cp-grid{grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:8px}
+.and.cp{padding:8px 10px 8px 11px;gap:1px;border-left-width:5px;border-radius:9px}
+.and.cp .cli{font-size:19px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.and.cp .ped{font-family:var(--disp);font-weight:700;font-size:18px;line-height:1.1;color:var(--orange-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cp-meta{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cp-top{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:6px;min-width:0}
+.cp-top .cli{flex:0 1 auto;max-width:100%;min-width:0}
+.cp-top .cp-t{margin-left:auto}
+.cp-rod{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:5px}
+.cp-t{font-size:12px;color:var(--muted);white-space:nowrap;flex:none}
+.relogio.sm{display:inline;font-family:var(--body);font-size:12px;font-weight:600;margin:0;letter-spacing:0;color:var(--muted)}
+.relogio.sm.longo{color:var(--bad)}
+.cp-bts{display:flex;align-items:center;gap:2px}
+.btn-p{padding:5px 10px;font-size:13px;border-radius:7px}
+.lnk{background:none;border:0;color:var(--muted);font-size:12px;cursor:pointer;padding:5px 5px;font-weight:600}
+.lnk:hover{color:var(--bad)}
+@media (max-width:440px){ .topo .marca span{display:none} }
+
+/* ═══════════ TELEFONE E TABLET (Android) ═══════════ */
+html{-webkit-text-size-adjust:100%}
+body{touch-action:manipulation;-webkit-tap-highlight-color:transparent;overscroll-behavior-y:contain}
+.btn:active,.mini:active,.lnk:active,.chip:active{transform:scale(.97)}
+div.f{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:var(--ink)}
+div.f em{font-style:normal;color:var(--orange)}
+/* − valor + */
+.qtd{display:flex;align-items:stretch}
+.qtd .in{flex:1;min-width:0;text-align:center;border-radius:0;font-weight:600;-moz-appearance:textfield;appearance:textfield}
+.qtd .in::-webkit-inner-spin-button,.qtd .in::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.qb{flex:none;width:44px;border:1px solid var(--line);background:var(--navy-3);color:var(--navy);font-size:22px;font-weight:700;line-height:1;cursor:pointer;user-select:none}
+.qtd .qb:first-child{border-radius:8px 0 0 8px;border-right:0}
+.qtd .qb:last-child{border-radius:0 8px 8px 0;border-left:0}
+.qb:active{background:#D3DCEB}
+.qb:disabled{opacity:.4;cursor:default}
+.hora{display:flex;gap:6px}
+.hora .in{flex:1;min-width:0}
+.qb.agora{width:auto;padding:0 14px;font-size:14px;border-radius:8px}
+/* navegação inferior */
+.nav-baixo{display:none}
+.filtro-tg{display:none}
+
+@media (max-width:1023px){
+  .abas{display:none}
+  .nav-baixo{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;position:fixed;left:0;right:0;bottom:0;z-index:40;background:#fff;border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(18,43,84,.08);padding-bottom:env(safe-area-inset-bottom,0px)}
+  .nav-baixo button{position:relative;background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 4px 7px;min-height:58px;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer}
+  .nav-baixo svg{width:24px;height:24px}
+  .nav-baixo button[aria-current="page"]{color:var(--navy)}
+  .nav-baixo button[aria-current="page"]::before{content:"";position:absolute;top:0;left:22%;right:22%;height:3px;border-radius:0 0 3px 3px;background:var(--orange)}
+  .nav-baixo .badge{position:absolute;top:5px;left:calc(50% + 6px);background:var(--orange);color:#fff;font-size:11px;min-width:18px;height:18px;line-height:18px;border-radius:9px;padding:0 5px}
+  main{padding:16px 14px calc(92px + env(safe-area-inset-bottom,0px))}
+  .rodape{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
+  .toast{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+  #progresso{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
+  .topo-in{padding:8px 14px}
+  .marca b{font-size:23px}
+  /* filtros recolhíveis */
+  .filtro-tg{display:inline-flex;width:100%;justify-content:space-between;margin-bottom:10px}
+  .filtros{display:none}
+  .filtros.aberto{display:grid}
+  /* lançamentos em cartões (telefone e tablet em pé) */
+  table.t thead{display:none}
+  table.t,table.t tbody,table.t tr,table.t td{display:block;width:100%}
+  table.t tr{border-top:1px solid var(--line);padding:10px 14px;display:grid;grid-template-columns:1fr 1fr;gap:2px 10px}
+  table.t td{border:0;padding:1px 0;white-space:normal;text-align:left!important;font-size:13px}
+  table.t td::before{content:attr(data-l) ": ";color:var(--muted)}
+  table.t td.cli{grid-column:1/-1;font-weight:700;font-size:15px;order:-1}
+  table.t td.cli::before{content:none}
+  .cad-l{flex-wrap:wrap}
+  .grade2{grid-template-columns:1fr}
+}
+/* tablet em pé: lançamentos em 2 colunas de cartões */
+@media (min-width:600px) and (max-width:1023px){
+  .tab-wrap>table.t>tbody{display:grid;grid-template-columns:1fr 1fr;gap:0 1px;background:var(--line)}
+  .tab-wrap>table.t>tbody>tr{background:#fff}
+  .grade2{grid-template-columns:1fr 1fr}
+  .fundo{align-items:center}
+  .modal{max-width:680px}
+}
+/* telefone: formulários em tela cheia com botões fixos embaixo */
+@media (max-width:599px){
+  .fundo{padding:0;align-items:stretch;overscroll-behavior:contain}
+  .modal{max-width:none;min-height:100%;border-radius:0;display:flex;flex-direction:column;animation:none}
+  .modal-cab{border-radius:0;position:sticky;top:0;z-index:3;padding-top:calc(12px + env(safe-area-inset-top,0px))}
+  .modal-corpo{flex:1;padding:16px 14px}
+  .modal-rod{position:sticky;bottom:0;z-index:3;background:#fff;box-shadow:0 -4px 14px rgba(18,43,84,.1);padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px))}
+  .modal-rod .btn{flex:1}
+  .modal-rod .esq{flex:0 0 auto;margin-right:0}
+  .form{grid-template-columns:1fr 1fr;gap:12px}
+  .form .wm,.form .full{grid-column:1/-1}
+  .kpis{grid-template-columns:1fr 1fr;gap:8px}
+  .kpi{padding:12px}
+  .kpi .v{font-size:28px}
+  .acoes .btn-g{font-size:15px;padding:14px 10px}
+  h2{font-size:21px}
+  .db-bts .btn{flex:1 1 45%}
+}
+/* toque: alvos de pelo menos ~44px */
+@media (pointer:coarse){
+  .in{min-height:48px;font-size:16px}
+  .qb{min-height:48px;width:48px}
+  .btn{min-height:46px}
+  .btn-p{min-height:40px;padding:8px 14px;font-size:14px}
+  .lnk{min-height:40px;padding:8px 8px;font-size:13px}
+  .mini{min-height:40px;padding:8px 12px;font-size:14px}
+  .seg button{min-height:42px;padding:8px 16px}
+  .chip{min-height:36px}
+  .btn-topo{min-height:40px}
+  .menu-lista button{min-height:48px}
+  .modal-cab button{min-width:44px;min-height:44px}
+  .sn label{padding:13px 10px}
+  .radio{padding:12px}
+  .lh{padding:13px 16px}
+  table.t tbody tr{min-height:48px}
+}
+.form>*{min-width:0}
 </style>
 </head>
 <body>
@@ -253,7 +370,7 @@ table.t tbody tr:hover{background:#F7F9FC}
 /* ═══════════════════════════════════════════════════════════
    PORTOEX · Controle de Estoque — Firebase Realtime Database
    ═══════════════════════════════════════════════════════════ */
-const VERSAO = 'v2026.10.06-a';
+const VERSAO = 'v2026.10.06-c';
 const RAIZ = 'estoque';                      // nó raiz deste app no banco
 const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyC7z_sLiojkDBmOFK4pjSCqFACzArfZDts',
@@ -559,6 +676,12 @@ function sair(msg){ store.del(K.sess); S.user = null; S.menu = false; fecharModa
 
 /* ═══════════ CASCA E RENDERIZAÇÃO (sem piscar) ═══════════ */
 const ABAS = [['operacao','Operação'],['lancamentos','Lançamentos'],['painel','Painel'],['cadastros','Cadastros']];
+const ICO = {
+  operacao:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>',
+  lancamentos:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></svg>',
+  painel:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+  cadastros:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.6.8 2.6 2.6 3 5.2"/></svg>'
+};
 let shell = false, htmlAnt = { topo:'', main:'' }, rafId = 0;
 function limparShell(){ shell = false; htmlAnt = { topo:'', main:'' }; }
 function agendar(){ if(rafId) return; rafId = requestAnimationFrame(() => { rafId = 0; render(); }); }
@@ -599,7 +722,10 @@ function htmlTopo(){
     </div>
     <nav class="abas"><div class="abas-in" role="tablist">
       ${abas.map(a => `<button role="tab" aria-selected="${S.tab === a[0]}" onclick="irAba('${a[0]}')">${a[1]}${a[0] === 'operacao' && nOp ? ` (${nOp})` : ''}</button>`).join('')}
-    </div></nav>`;
+    </div></nav>
+    <nav class="nav-baixo" aria-label="Menu principal">
+      ${abas.map(a => `<button aria-current="${S.tab === a[0] ? 'page' : 'false'}" onclick="irAba('${a[0]}')">${ICO[a[0]]}<span>${a[1]}</span>${a[0] === 'operacao' && nOp ? `<b class="badge">${nOp}</b>` : ''}</button>`).join('')}
+    </nav>`;
 }
 function irAba(t){ S.tab = t; S.menu = false; render(); window.scrollTo(0, 0); }
 
@@ -607,6 +733,7 @@ function irAba(t){ S.tab = t; S.menu = false; render(); window.scrollTo(0, 0); }
 function fimSeparacao(r){ const d = new Date(r.data + 'T' + (r.hf || '00:00:00')); if(seg(r.hf) != null && seg(r.hf) < seg(r.hi)) d.setDate(d.getDate() + 1); return d; }
 function tempoRetirada(r){ if(r.stEnt !== ST_EN || !r.entData) return null; return (new Date(r.entData + 'T' + (r.entHora || '00:00:00')) - fimSeparacao(r)) / 1000; }
 const isoLocal = d => isoDe(d) + 'T' + p2(d.getHours()) + ':' + p2(d.getMinutes()) + ':' + p2(d.getSeconds());
+const movCurto = m => ehEntrada(m) ? 'Entrada' : ehSeparacao(m) ? 'Separação' : /DEVOLU/i.test(m||'') ? 'Devolução' : String(m||'');
 const tagEnt = r => r.stEnt === ST_AG ? '<span class="tag ag">Aguardando retirada</span>' : r.stEnt === ST_EN ? '<span class="tag ok">Entregue</span>' : '';
 
 function vOperacao(){
@@ -624,34 +751,24 @@ function vOperacao(){
 
   <section class="secao">
     <h2>Em andamento<small>${and.length ? and.length + ' operaç' + (and.length > 1 ? 'ões' : 'ão') : ''}</small></h2>
-    ${and.length ? `<div class="cards-and">${and.map(a => `
-      <article class="and">
-        <div class="mov">${esc(a.mov)}</div>
-        <div class="cli">${esc(a.cliente)}</div>
-        <div class="meta">${esc(a.colab)}${a.nf ? ' | ' + esc(a.nf) : ''}</div>
-        <div class="relogio" data-start="${esc(a.data)}T${esc(a.hi)}">--:--:--</div>
-        <div class="meta">Início ${dataBR(a.data)} às ${esc((a.hi||'').slice(0,5))}</div>
-        <div class="rod">
-          <button class="btn btn-txt" onclick="cancelarAnd('${esc(a.id)}')">Cancelar</button>
-          <button class="btn btn-nav" onclick="abrirForm('finalizar','${esc(a.id)}')">Finalizar</button>
-        </div>
+    ${and.length ? `<div class="cards-and cp-grid">${and.map(a => `
+      <article class="and cp" title="${esc(a.mov)} | início ${dataBR(a.data)} às ${esc((a.hi||'').slice(0,5))}">
+        <div class="cp-top"><span class="cli">${esc(a.cliente)}</span><span class="cp-t">⏱ <span class="relogio sm" data-start="${esc(a.data)}T${esc(a.hi)}">--</span></span></div>
+        <div class="ped">${esc(a.nf || 'Sem nº')}</div>
+        <div class="cp-meta">${esc(movCurto(a.mov))} | ${esc(a.colab)}</div>
+        <div class="cp-rod"><button class="lnk" onclick="cancelarAnd('${esc(a.id)}')">Cancelar</button><button class="btn btn-nav btn-p" onclick="abrirForm('finalizar','${esc(a.id)}')">Finalizar</button></div>
       </article>`).join('')}</div>`
     : `<div class="vazio">Nenhuma operação em andamento. Toque em <b>Iniciar operação</b> quando começar um recebimento ou separação.</div>`}
   </section>
 
   <section class="secao">
     <h2>Pedidos aguardando retirada<small>${ret.length ? ret.length + ' pedido' + (ret.length > 1 ? 's' : '') : ''}</small></h2>
-    ${ret.length ? `<div class="cards-and">${ret.map(r => `
-      <article class="and ret">
-        <div class="mov">Separado | aguardando retirada</div>
-        <div class="cli">${esc(r.cliente)}</div>
-        <div class="meta">${esc(r.nf || 'Sem nº de pedido')} | ${nf(r.vol)} vol.${r.pal ? ' | ' + nf(Math.abs(r.pal)) + ' pallet' + (Math.abs(r.pal) > 1 ? 's' : '') : ''}</div>
-        <div class="relogio md" data-start="${isoLocal(fimSeparacao(r))}" data-fmt="espera" data-lim="86400">--:--:--</div>
-        <div class="meta">Separado por ${esc(r.colab)} em ${dataBR(r.data)} às ${esc(r.hf.slice(0,5))}</div>
-        <div class="rod">
-          <button class="btn btn-txt" style="color:var(--navy)" onclick="abrirRegistro('${esc(r.id)}','${esc(r.data.slice(0,7))}')">Detalhes</button>
-          <button class="btn btn-pri" onclick="abrirEntrega('${esc(r.id)}')">Registrar entrega</button>
-        </div>
+    ${ret.length ? `<div class="cards-and cp-grid">${ret.map(r => `
+      <article class="and ret cp" title="Separado por ${esc(r.colab)} em ${dataBR(r.data)} às ${esc(r.hf.slice(0,5))}">
+        <div class="cp-top"><span class="cli">${esc(r.cliente)}</span><span class="cp-t">⏱ <span class="relogio sm" data-start="${isoLocal(fimSeparacao(r))}" data-fmt="espera" data-lim="86400">--</span></span></div>
+        <div class="ped">${esc(r.nf || 'Sem nº')}</div>
+        <div class="cp-meta">${nf(r.vol)} vol.${r.pal ? ' | ' + nf(Math.abs(r.pal)) + ' plt' : ''} | ${esc(r.colab)}</div>
+        <div class="cp-rod"><button class="lnk" style="color:var(--navy)" onclick="abrirRegistro('${esc(r.id)}','${esc(r.data.slice(0,7))}')">Ver</button><button class="btn btn-pri btn-p" onclick="abrirEntrega('${esc(r.id)}')">Entregar</button></div>
       </article>`).join('')}</div>`
     : `<div class="vazio">Nenhum pedido aguardando retirada. Toda separação de pedido nova entra aqui até a entrega ser registrada.</div>`}
   </section>
@@ -716,7 +833,8 @@ function vLancamentos(){
   const div = L.filter(r => r.div === 'SIM').length;
   const LIM = 400;
   return `
-  <div class="filtros">
+  ${(() => { const n = ['cliente','mov','colab','ent','q'].filter(k => f[k]).length + (f.de || f.ate ? 1 : 0); return `<button class="btn btn-sec filtro-tg" onclick="S.fAberto=!S.fAberto;render()" aria-expanded="${!!S.fAberto}">Filtros${n ? ' (' + n + ')' : ''} ${S.fAberto ? '▴' : '▾'}</button>`; })()}
+  <div class="filtros ${S.fAberto ? 'aberto' : ''}">
     <label class="f">De<input class="in" type="date" name="px-de" value="${f.de}" onchange="S.f.de=this.value;render()"></label>
     <label class="f">Até<input class="in" type="date" name="px-ate" value="${f.ate}" onchange="S.f.ate=this.value;render()"></label>
     <label class="f">Cliente<select class="in" onchange="S.f.cliente=this.value;render()">${optList(unicos('cliente','clientes'), f.cliente, 'Todos')}</select></label>
@@ -947,13 +1065,14 @@ function camposInicio(r, dis){
 }
 function camposFim(r, dis){
   const d = dis ? 'disabled' : '';
-  const num = (n, l, v, extra = '') => `<label class="f"><span>${l}<em>*</em></span><input class="in" type="number" inputmode="numeric" step="1" name="${n}" value="${v == null ? 0 : v}" required ${extra} ${d}></label>`;
+  const num = (n, l, v, extra = '', dica = '') => `<div class="f"><span>${l}<em>*</em>${dica ? ' <span class="dica">' + dica + '</span>' : ''}</span>
+    <div class="qtd"><button type="button" class="qb" data-d="-1" aria-label="Diminuir" ${d}>−</button><input class="in" type="number" inputmode="numeric" step="1" name="${n}" value="${v == null ? 0 : v}" required ${extra} ${d}><button type="button" class="qb" data-d="1" aria-label="Aumentar" ${d}>+</button></div></div>`;
   return `
     ${num('sku','Qtd. de SKU',r.sku,'min="0"')}
     ${num('vol','Qtd. de volumes',r.vol,'min="0"')}
     ${num('un','Qtd. de unidades',r.un,'min="0"')}
-    <label class="f"><span>Qtd. de pallets<em>*</em></span><input class="in" type="number" inputmode="numeric" step="1" name="pal" value="${r.pal == null ? 0 : r.pal}" required ${d}><span class="dica">Negativo = saída</span></label>
-    <label class="f"><span>Hora final<em>*</em></span><input class="in" type="time" step="1" name="hf" value="${esc(r.hf)}" required ${d}></label>
+    ${num('pal','Qtd. de pallets',r.pal,'','(− = saída)')}
+    <div class="f wm"><span>Hora final<em>*</em></span><div class="hora"><input class="in" type="time" step="1" name="hf" value="${esc(r.hf)}" required ${d}>${dis ? '' : '<button type="button" class="qb agora" data-agora="hf">Agora</button>'}</div></div>
     <div class="f" style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;justify-content:flex-end">Tempo realizado<span class="tempo" id="tempoForm">--:--:--</span></div>
     <div class="f full" style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600">Divergência
       <div class="sn" role="radiogroup" aria-label="Divergência">
@@ -1126,7 +1245,7 @@ function abrirEntrega(id, rec){
     <form id="fEnt" class="form" ${CAMPO} onsubmit="return false">
       <label class="f full"><span>Quem entregou<em>*</em></span>${selectCad('por','colaboradores','')}</label>
       <label class="f"><span>Dia<em>*</em></span><input class="in" type="date" name="data" value="${hojeISO()}" required></label>
-      <label class="f"><span>Horário<em>*</em></span><input class="in" type="time" step="1" name="hora" value="${agoraHora()}" required></label>
+      <div class="f"><span>Horário<em>*</em></span><div class="hora"><input class="in" type="time" step="1" name="hora" value="${agoraHora()}" required><button type="button" class="qb agora" data-agora="hora">Agora</button></div></div>
       <label class="f full"><span>Observação da entrega</span>
         <textarea class="in" name="px-ent-obs" ${CAMPO} rows="3" placeholder="Ex.: retirado pelo motorista da transportadora, placa, volume avariado, entrega parcial…"></textarea></label>
     </form><div id="fErro"></div>`,
@@ -1486,16 +1605,36 @@ async function reenviarAparelho(){
 }
 
 /* ═══════════ MODAL ═══════════ */
+let histModal = false, voltando = false;
+function removerModal(){ const m = $('#modal'); if(m) m.remove(); document.body.style.overflow = ''; }
 function abrirModal(titulo, corpo, rodape){
-  fecharModal();
+  removerModal();
   const d = document.createElement('div'); d.className = 'fundo'; d.id = 'modal';
   d.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-label="${esc(titulo)}">
     <div class="modal-cab"><h3>${esc(titulo)}</h3><button onclick="fecharModal()" aria-label="Fechar">×</button></div>
     <div class="modal-corpo">${corpo}</div>${rodape ? `<div class="modal-rod">${rodape}</div>` : ''}</div>`;
   d.addEventListener('mousedown', e => { if(e.target === d) fecharModal(); });
   document.body.appendChild(d); document.body.style.overflow = 'hidden';
+  d.addEventListener('click', ev => {   // − / + e "Agora" dentro dos formulários
+    const b = ev.target.closest('.qb'); if(!b || b.disabled) return;
+    if(b.dataset.agora){ const i = d.querySelector('input[name="' + b.dataset.agora + '"]'); if(i){ i.value = agoraHora(); i.dispatchEvent(new Event('input', { bubbles:true })); } return; }
+    const i = b.parentNode.querySelector('input'); if(!i) return;
+    let v = (Number(i.value) || 0) + Number(b.dataset.d);
+    if(i.min !== '' && v < Number(i.min)) v = Number(i.min);
+    i.value = v; i.dispatchEvent(new Event('input', { bubbles:true }));
+  });
+  if(!histModal && !voltando){ try{ history.pushState({ pxModal:1 }, ''); histModal = true; }catch(_){} }
 }
-function fecharModal(){ const m = $('#modal'); if(m) m.remove(); document.body.style.overflow = ''; }
+function fecharModal(viaVoltar){
+  removerModal();
+  if(histModal && !viaVoltar){ histModal = false; voltando = true; try{ history.back(); }catch(_){ voltando = false; } }
+}
+/* botão Voltar do Android: fecha o modal em vez de sair do app */
+window.addEventListener('popstate', () => {
+  if(voltando){ voltando = false; if($('#modal') && !histModal){ try{ history.pushState({ pxModal:1 }, ''); histModal = true; }catch(_){} } return; }
+  if(histModal){ histModal = false; fecharModal(true); }
+  else if(S.menu){ S.menu = false; render(); }
+});
 document.addEventListener('keydown', e => { if(e.key === 'Escape'){ if($('#modal')) fecharModal(); else if(S.menu){ S.menu = false; render(); } } });
 document.addEventListener('click', e => { if(S.menu && !e.target.closest('.menu')){ S.menu = false; render(); } });
 
@@ -1511,7 +1650,9 @@ function posRender(posBusca){
 function tick(){
   document.querySelectorAll('[data-start]').forEach(el => {
     const s = (Date.now() - new Date(el.dataset.start).getTime()) / 1000;
-    const txt = el.dataset.fmt === 'espera' ? fmtEspera(s) : fmtDur(s);
+    let txt = el.dataset.fmt === 'espera' ? fmtEspera(s) : fmtDur(s);
+    if(el.classList.contains('sm')){ const t = Math.max(0, Math.floor(s)), d = Math.floor(t / 86400), h = Math.floor(t % 86400 / 3600), m = Math.floor(t % 3600 / 60);
+      txt = d ? d + 'd ' + h + 'h' : h ? h + 'h' + p2(m) : m + ' min'; }
     if(el.textContent !== txt) el.textContent = txt;
     el.classList.toggle('longo', s > (+el.dataset.lim || 4 * 3600));
   });
