@@ -380,6 +380,16 @@ div.f em{font-style:normal;color:var(--orange)}
 .lp-tx b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lp-tx span{display:block;font-size:13px;color:var(--muted)}
 .lp .tag{flex:none}
+.sel-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:-4px 0 10px}
+.sel-bar .sel-n{font-weight:600;color:var(--navy);margin-right:auto}
+.sel-bar .btn[disabled]{opacity:.5;cursor:default}
+.ped-card{position:relative}
+.ped-card.selm .cp-top{padding-right:28px}
+.ped-card.selm .cp-t{display:none}
+.ped-card.sel{outline:3px solid var(--navy);outline-offset:-1px;background:var(--navy-3)}
+.ped-ck{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:6px;border:2px solid var(--navy);background:#fff;color:var(--navy);display:grid;place-items:center;font-weight:700;font-size:14px;line-height:1}
+.ped-card.sel .ped-ck{background:var(--navy);color:#fff}
+a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
 .ped-txt{white-space:pre-wrap;font-size:12px;max-height:260px;overflow:auto;background:#F7F9FC;border:1px solid var(--line);border-radius:8px;padding:10px}
 .form>*{min-width:0}
 </style>
@@ -391,7 +401,7 @@ div.f em{font-style:normal;color:var(--orange)}
 /* ═══════════════════════════════════════════════════════════
    PORTOEX · Controle de Estoque — Firebase Realtime Database
    ═══════════════════════════════════════════════════════════ */
-const VERSAO = 'v2026.10.13-a';
+const VERSAO = 'v2026.10.13-b';
 const RAIZ = 'estoque';                      // nó raiz deste app no banco
 const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyC7z_sLiojkDBmOFK4pjSCqFACzArfZDts',
@@ -462,7 +472,7 @@ const ST_AG='AGUARDANDO RETIRADA', ST_EN='ENTREGUE';
 const S = {
   user:null, tab:'operacao', cad:'clientes', menu:false,
   f:{ de: hojeISO().slice(0,8)+'01', ate: hojeISO(), cliente:'', mov:'', colab:'', ent:'', q:'' },
-  p:{ mes: mesAtual(), cliente:'' }, ocMes: mesAtual()
+  p:{ mes: mesAtual(), cliente:'' }, ocMes: mesAtual(), pSelOn:false, pSel:{}
 };
 const D = { mov:{}, carregado:{}, meses:[], andamento:{}, andOk:false, pendentes:{}, pendOk:false,
             cad:{}, cadOk:false, usuarios:{}, usuOk:false, ocupacao:{}, meta:{}, pedidos:{}, pedOk:false };
@@ -843,13 +853,22 @@ const numBR = s => { const v = parseFloat(String(s == null ? '' : s).replace(/\.
 const LEITORES = [
   { id:'SEGER', nome:'Seger', depos:['SEGER'],
     reconhece: t => /SEGER COMERCIAL/i.test(t) || /ROMANEIO DE VENDA/i.test(t),
-    ler(t){
+    ler(t, meta){
       const p = { tipo:'ROM' };
-      let m = t.match(/ROMANEIO DE VENDA\s+(\d{4}\s*\/\s*\d{2}\s*-\s*\d{3,5})/i); if(m) p.numero = m[1].replace(/\s/g, '');
-      m = t.match(/ROMANEIO DE VENDA\s+\d{4}\s*\/\s*\d{2}\s*-\s*\d{3,5}\s+(.+?)\s{2,}(.+?)(?:\s{2,}|$)/i);
-      if(m){ p.destinatario = m[1].trim(); if(!/N[ÚU]MEROS DE S[ÉE]RIE/i.test(m[2])) p.endereco = m[2].trim(); }
-      m = t.match(/CIDADE:\s*(.*?)\s*ESTADO\s*([A-Z]{2})/i); if(m){ p.cidade = m[1].trim(); p.uf = m[2].toUpperCase(); }
-      m = t.match(/CNPJ:\s*([\d.\/-]{14,20})/i); if(m) p.cnpj = m[1];
+      let m = t.match(/ROMANEIO DE VENDA\s+(\d{4}\s*\/\s*\d{2}\s*-\s*\d{3,5})/i);
+      if(m) p.numero = m[1].replace(/\s/g, '');
+      else { m = String(meta.arquivo || '' ).concat(' ', meta.assunto || '').match(/(20\d{2})\s*\/?\s*(\d{2})\s*-\s*0*(\d{3,4})\b/); if(m) p.numero = m[1] + '/' + m[2] + '-' + m[3].padStart(4, '0'); }
+      if(p.numero){ const q = p.numero.match(/^(\d{4}\/\d{2}-)(\d+)$/); if(q) p.numero = q[1] + q[2].padStart(4, '0'); }
+      m = t.match(/ROMANEIO DE VENDA(?:\s+\d{4}\s*\/\s*\d{2}\s*-\s*\d{3,5})?\s{2,}(.+?)\s{2,}(.+?)(?:\s{2,}|$)/i);
+      if(m && !/N[ÚU]MEROS DE S[ÉE]RIE/i.test(m[1])){ p.destinatario = m[1].trim(); if(!/N[ÚU]MEROS DE S[ÉE]RIE/i.test(m[2])) p.endereco = m[2].trim(); }
+      m = t.match(/CIDADE:\s*(.*?)\s*(?:ESTADO\s*(.*?))?\s{2,}CEP/i);
+      if(m){
+        let a = (m[1] || '').trim(), b = (m[2] || '').trim();
+        if(/^[A-Z]{2}$/i.test(a) && b && !/^[A-Z]{2}$/i.test(b)){ const c = a; a = b; b = c; }   // "GOESTADOPIRACANJUBA - GO"
+        const uf = a.match(/\s*-\s*([A-Z]{2})$/i); if(uf){ if(!b) b = uf[1]; a = a.slice(0, uf.index); }
+        p.cidade = a.trim(); if(/^[A-Z]{2}$/i.test(b)) p.uf = b.toUpperCase();
+      }
+      m = t.match(/CNPJ:\s*([\d.\/-]{11,20})/i); if(m) p.cnpj = m[1];
       m = t.match(/FONE:\s+(.+?)\s{2,}CNPJ/i); if(m && !/^CNPJ/i.test(m[1])) p.contato = m[1].trim();
       m = t.match(/([\d.]+,\d{2})\s*R\$/); if(m) p.total = numBR(m[1]);
       p.itens = [];
@@ -872,20 +891,20 @@ const LEITORES = [
       p.itens = [];
       const ini = t.search(/Itens do Pedido/i), fim = t.search(/Subtotal:/i);
       const sec = (ini >= 0 ? t.slice(ini, fim > ini ? fim : undefined) : t).replace(/\s+/g, ' ');
-      const re = /(?:^|\s)(\d{3,6}) (.+?) ?(\d{4}\.\d{2}\.\d{2}) ([\d.]+,\d{2})(?: ([A-Z]{2,6}))? ([\d.]+,\d{2,4}) ([\d.]+,\d{2})(.*?)(?=\s\d{3,6} [A-Z]|$)/g;
+      const re = /(?:^|\s)(\d{3,6}[A-Za-z]{0,3}) (.+?) ?(\d{4}\.\d{2}\.\d{2}) ([\d.]+,\d{2})(?: ([A-Z]{2,6}))? ([\d.]+,\d{2,4}) ([\d.]+,\d{2})(.*?)(?=\s\d{3,6}[A-Za-z]{0,3} [A-Za-z"']|$)/g;
       let x; while((x = re.exec(sec))){
-        const resto = x[8].split(' ').filter(w => w && !/^(GARRAF|GRF|UN|UND|CX|PC)\.?$/.test(w)).join(' ');
+        const resto = x[8].split(' ').filter(w => w && !/^(GARRAF|GRF|GF|UN|UND|CX|PC)\.?$/.test(w)).join(' ');
         const un = x[5] || (/\b(GARRAF|GRF)\b/.test(x[8]) ? 'GRF' : 'UN');
         p.itens.push({ cod:x[1], desc:(x[2] + ' ' + resto).trim(), qtd:numBR(x[4]), un, valor:numBR(x[7]) });
       }
       return p;
     } }
 ];
-function lerPedidoTexto(texto){
-  const t = String(texto || '');
+function lerPedidoTexto(texto, meta){
+  const t = String(texto || ''); meta = meta || {};
   const L = LEITORES.find(l => l.reconhece(t));
   if(!L) return { layout:'', itens:[], sku:0, un:0, texto:t.slice(0, 20000) };
-  const p = L.ler(t);
+  const p = L.ler(t, meta);
   p.layout = L.id; p.deposNome = L.nome;
   p.sku = p.itens.length; p.un = p.itens.reduce((s, i) => s + (i.qtd || 0), 0);
   if(!p.itens.length) p.texto = t.slice(0, 20000);   // layout conhecido mas itens não lidos: guarda o texto para conferência
@@ -970,7 +989,7 @@ async function processarRecebidos(){
     lendoPed.add(id);
     try{
       const b64 = String(raw.pdfB64);
-      const p = lerPedidoTexto(await textoDoPdf(bytesDeB64(b64)));
+      const p = lerPedidoTexto(await textoDoPdf(bytesDeB64(b64)), { arquivo:raw.arquivo, assunto:raw.assunto });
       const dup = duplicadoDe(p, id);
       await root.child('pedidosPdf/' + id).set(b64.replace(/^data:[^,]*,/, ''));
       await root.child('pedidosEmail/' + id).update(limpa(Object.assign(p, { pdfB64:null, temPdf:true, lidoMs:Date.now(), lidoDisp:DISP,
@@ -990,21 +1009,28 @@ function vPedidos(){
   const tratados = L.filter(p => p.status !== PED_ST.NOVO && (p.iniMs || p.descMs || p.sepMs || p.recebido) >= lim);
   return `
   <div class="acoes">
-    <label class="btn btn-pri btn-g" style="cursor:pointer">＋ Importar PDF do pedido<input type="file" accept="application/pdf,.pdf" multiple hidden onchange="importarPdfs(this.files);this.value=''"></label>
+    <label class="btn btn-pri btn-g" style="cursor:pointer">＋ Importar PDF do pedido<input type="file" accept="application/pdf,.pdf,application/json,.json" multiple hidden onchange="importarArquivos(this.files);this.value=''"></label>
   </div>
-  <p class="nota">Pedidos que chegam por e-mail ao Estoque. Leitura automática: <b>romaneio Seger</b> e <b>pedido de venda Ivini/Wineoclock</b>; outros PDFs entram para conferência manual.</p>
+  <p class="nota">Pedidos que chegam por e-mail ao Estoque. Aceita o PDF do pedido ou um lote de pedidos (.json). Leitura automática: <b>romaneio Seger</b> e <b>pedido de venda Ivini/Wineoclock</b>; outros PDFs entram para conferência manual.</p>
   ${!D.pedOk ? '<p class="nota">Carregando pedidos…</p>' : ''}
   ${lendo.length ? `<p class="nota">Lendo ${lendo.length} PDF${lendo.length > 1 ? 's' : ''} recebido${lendo.length > 1 ? 's' : ''} por e-mail…</p>` : ''}
 
   <section class="secao">
     <h2>Novos pedidos<small>${novos.length ? novos.length + ' pedido' + (novos.length > 1 ? 's' : '') : ''}</small></h2>
+    ${isAdmin() && novos.length ? (() => { const n = novos.filter(p => S.pSel[p.id]).length; return `<div class="sel-bar">
+      ${S.pSelOn ? `<span class="sel-n">${n} selecionado${n === 1 ? '' : 's'}</span>
+        <button class="btn btn-sec btn-p" onclick="selecionarTodos(${n === novos.length})">${n === novos.length ? 'Desmarcar todos' : 'Marcar todos'}</button>
+        <button class="btn btn-del btn-p" ${n ? '' : 'disabled'} onclick="excluirSelecionados()">Excluir${n ? ' (' + n + ')' : ''}</button>
+        <button class="btn btn-sec btn-p" onclick="alternarSelecao()">Cancelar</button>`
+      : `<button class="btn btn-sec btn-p" onclick="alternarSelecao()">☑ Selecionar para excluir</button>`}</div>`; })() : ''}
     ${novos.length ? `<div class="cards-and cp-grid">${novos.map(p => `
-      <article class="and cp ped-card" onclick="abrirPedido('${esc(p.id)}')" title="${esc(tituloPed(p))}">
+      <article class="and cp ped-card${S.pSelOn ? ' selm' : ''}${S.pSelOn && S.pSel[p.id] ? ' sel' : ''}" onclick="${S.pSelOn ? `alternarSel('${esc(p.id)}')` : `abrirPedido('${esc(p.id)}')`}" title="${esc(tituloPed(p))}">
+        ${S.pSelOn ? `<span class="ped-ck" aria-hidden="true">${S.pSel[p.id] ? '✓' : ''}</span>` : ''}
         <div class="cp-top"><span class="cli">${esc(tituloPed(p))}</span><span class="cp-t">${p.recebido ? `⏱ <span class="relogio sm" data-start="${isoLocal(new Date(p.recebido))}" data-fmt="espera" data-lim="14400">--</span>` : ''}</span></div>
         <div class="ped">${esc(nfDoPed(p) || 'Sem nº')}</div>
         <div class="cp-meta">${esc(p.deposNome || (p.remetente || '').split('@')[1] || 'Layout não reconhecido')}${p.cidade ? ' | ' + esc(p.cidade) + (p.uf ? '/' + esc(p.uf) : '') : ''}</div>
         <div class="cp-meta">${p.sku ? nf(p.sku) + ' ite' + (p.sku > 1 ? 'ns' : 'm') + ' | ' + nf(p.un) + ' un.' : '<b style="color:var(--orange-2)">Conferir manualmente</b>'}</div>
-        <div class="cp-rod"><button class="lnk" style="color:var(--navy)" onclick="event.stopPropagation();abrirPedido('${esc(p.id)}')">Ver</button><button class="btn btn-pri btn-p" onclick="event.stopPropagation();iniciarPedido('${esc(p.id)}')">Separar</button></div>
+        ${S.pSelOn ? '' : `<div class="cp-rod"><button class="lnk" style="color:var(--navy)" onclick="event.stopPropagation();abrirPedido('${esc(p.id)}')">Ver</button><button class="btn btn-pri btn-p" onclick="event.stopPropagation();iniciarPedido('${esc(p.id)}')">Separar</button></div>`}
       </article>`).join('')}</div>`
     : `<div class="vazio">Nenhum pedido novo. Toque em <b>Importar PDF do pedido</b> para adicionar o PDF que veio no e-mail.</div>`}
   </section>
@@ -1029,7 +1055,7 @@ async function importarPdfs(files){
       const f = files[i];
       progresso('Lendo ' + f.name + '…', files.length > 1 ? i / files.length : null);
       const bytes = new Uint8Array(await f.arrayBuffer());
-      const p = lerPedidoTexto(await textoDoPdf(bytes.slice()));
+      const p = lerPedidoTexto(await textoDoPdf(bytes.slice()), { arquivo:f.name });
       const id = idDoPed(p) || novoId();
       if(D.pedidos[id]){ rep++; continue; }
       const rec = Object.assign(p, { origem:'PDF', arquivo:f.name, recebido:Date.now(), importadoPor:S.user.usuario, importadoMs:Date.now(), disp:DISP, status:PED_ST.NOVO, temPdf:false });
@@ -1066,12 +1092,15 @@ function abrirPedido(id){
       ${linha('Separado', p.sepMs ? fmtDataHora(p.sepMs) : '')}${linha('Descartado', p.descMs ? fmtDataHora(p.descMs) + (p.descPor ? ' por ' + p.descPor : '') : '')}
       ${p.status === PED_ST.DUP ? linha('Duplicado de', p.dupDe) : ''}
     </div>
+    ${p.obsImport ? `<div class="ent-box" style="margin-top:12px"><div class="tx"><b>Observação</b>${esc(p.obsImport)}</div></div>` : ''}
     ${itens}
     ${p.texto ? `<details style="margin-top:12px"><summary class="nota" style="cursor:pointer">Texto lido do PDF</summary><pre class="ped-txt">${esc(p.texto)}</pre></details>` : ''}`;
-  const bPdf = p.temPdf ? `<button class="btn btn-sec" onclick="verPdfPedido('${esc(id)}')">Ver PDF</button>` : '';
+  const bPdf = (p.temPdf ? `<button class="btn btn-sec" onclick="verPdfPedido('${esc(id)}')">Ver PDF</button>` : '')
+    + (p.link ? `<a class="btn btn-sec" href="${esc(p.link)}" target="_blank" rel="noopener">Abrir e-mail</a>` : '');
+  const bExc = isAdmin() ? `<button class="btn btn-del esq" onclick="excluirPedido('${esc(id)}')">Excluir</button>` : '';
   let rodape;
-  if(p.status === PED_ST.NOVO) rodape = `<button class="btn btn-del esq" onclick="descartarPedido('${esc(id)}')">Descartar</button>${bPdf}<button class="btn btn-pri" onclick="iniciarPedido('${esc(id)}')">▶ Iniciar separação</button>`;
-  else rodape = `${isAdmin() ? `<button class="btn btn-del esq" onclick="excluirPedido('${esc(id)}')">Excluir</button>` : ''}${(p.status === PED_ST.DESC || p.status === PED_ST.DUP) ? `<button class="btn btn-sec" onclick="reabrirPedido('${esc(id)}')">Voltar para novos</button>` : ''}${bPdf}<button class="btn btn-sec" onclick="fecharModal()">Fechar</button>`;
+  if(p.status === PED_ST.NOVO) rodape = `${bExc || `<button class="btn btn-del esq" onclick="descartarPedido('${esc(id)}')">Descartar</button>`}${bExc ? `<button class="btn btn-sec" onclick="descartarPedido('${esc(id)}')">Descartar</button>` : ''}${bPdf}<button class="btn btn-pri" onclick="iniciarPedido('${esc(id)}')">▶ Iniciar separação</button>`;
+  else rodape = `${bExc}${(p.status === PED_ST.DESC || p.status === PED_ST.DUP) ? `<button class="btn btn-sec" onclick="reabrirPedido('${esc(id)}')">Voltar para novos</button>` : ''}${bPdf}<button class="btn btn-sec" onclick="fecharModal()">Fechar</button>`;
   abrirModal('Pedido', corpo, rodape);
 }
 function iniciarPedido(id){
@@ -1094,9 +1123,55 @@ function reabrirPedido(id){
   fecharModal(); toast('O pedido voltou para Novos pedidos.');
 }
 function excluirPedido(id){
-  if(!isAdmin() || !confirm('Excluir este pedido e o PDF dele definitivamente?')) return;
+  const p = D.pedidos[id]; if(!p || !isAdmin()) return;
+  if(!confirm(`Excluir o pedido ${nfDoPed(normPed(p, id)) || ''} (${tituloPed(p)})?\nUse quando ele já foi feito ou não deve entrar no app. Não dá para desfazer.`)) return;
   enqueue({ t:'del', p:'pedidosEmail/' + id }, { t:'del', p:'pedidosPdf/' + id });
+  delete S.pSel[id];
   fecharModal(); toast('Pedido excluído.');
+}
+function alternarSelecao(){ S.pSelOn = !S.pSelOn; S.pSel = {}; render(); }
+function alternarSel(id){ if(S.pSel[id]) delete S.pSel[id]; else S.pSel[id] = true; render(); }
+function selecionarTodos(desmarcar){ S.pSel = {}; if(!desmarcar) pedidosNovos().forEach(p => { S.pSel[p.id] = true; }); render(); }
+function excluirSelecionados(){
+  if(!isAdmin()) return;
+  const ids = Object.keys(S.pSel).filter(id => D.pedidos[id]);
+  if(!ids.length) return;
+  if(!confirm(`Excluir ${ids.length} pedido${ids.length > 1 ? 's' : ''} da lista?\nUse para os que já foram feitos. Não dá para desfazer.`)) return;
+  const ops = []; ids.forEach(id => ops.push({ t:'del', p:'pedidosEmail/' + id }, { t:'del', p:'pedidosPdf/' + id }));
+  enqueue(...ops);
+  S.pSel = {}; S.pSelOn = false; render();
+  toast(ids.length + ' pedido' + (ids.length > 1 ? 's excluídos.' : ' excluído.'));
+}
+
+/* lote (.json) gerado a partir dos e-mails: { formato:'PORTOEX-PEDIDOS', pedidos:[{ recebido, remetente, assunto, arquivo, link, obsImport, texto | manual }] } */
+async function importarArquivos(files){
+  files = Array.from(files || []);
+  const json = files.filter(f => /\.json$/i.test(f.name) || f.type === 'application/json');
+  const pdfs = files.filter(f => !json.includes(f));
+  for(const f of json) await importarLote(f);
+  if(pdfs.length) await importarPdfs(pdfs);
+}
+async function importarLote(f){
+  let dados;
+  try{ dados = JSON.parse(await f.text()); }catch(e){ return toast('O arquivo ' + f.name + ' não é um lote de pedidos válido.', true); }
+  const lista = Array.isArray(dados) ? dados : (dados && dados.pedidos) || [];
+  if(!lista.length) return toast('Nenhum pedido no arquivo ' + f.name + '.', true);
+  let ok = 0, rep = 0, manual = 0; const ops = [];
+  lista.forEach(r => {
+    if(!r) return;
+    const meta = { arquivo:r.arquivo || '', assunto:r.assunto || '' };
+    const p = r.texto ? lerPedidoTexto(r.texto, meta) : Object.assign({ itens:[], sku:0, un:0 }, r.manual || {});
+    if(!r.texto && r.manual && r.manual.itens){ p.sku = p.itens.length; p.un = p.itens.reduce((s, i) => s + (+i.qtd || 0), 0); }
+    const id = idDoPed(p) || chave('E_' + (r.id || r.link || r.assunto || novoId()).slice(-60));
+    if(D.pedidos[id] || ops.some(o => o.p === 'pedidosEmail/' + id)){ rep++; return; }
+    const rec = Object.assign(p, { origem:'EMAIL', recebido:msDe(r.recebido) || Date.now(), remetente:r.remetente || '', assunto:r.assunto || '', arquivo:r.arquivo || '',
+      link:r.link || '', obsImport:r.obsImport || p.obsImport || null, importadoPor:S.user.usuario, importadoMs:Date.now(), disp:DISP, status:PED_ST.NOVO, temPdf:false });
+    if(!rec.texto) delete rec.texto;
+    ops.push({ t:'set', p:'pedidosEmail/' + id, v:rec });
+    ok++; if(!p.itens.length) manual++;
+  });
+  if(ops.length) enqueue(...ops);
+  toast([ok ? ok + ' pedido(s) importado(s)' : '', rep ? rep + ' já estava(m) na lista' : '', manual ? manual + ' para conferir manualmente' : ''].filter(Boolean).join(' | ') + '.', !ok);
 }
 async function verPdfPedido(id){
   if(!root) return;
