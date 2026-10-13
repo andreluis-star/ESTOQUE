@@ -360,6 +360,27 @@ div.f em{font-style:normal;color:var(--orange)}
   .lh{padding:13px 16px}
   table.t tbody tr{min-height:48px}
 }
+/* ── pedidos por e-mail / PDF ── */
+.ped-card{cursor:pointer}
+.tag.run{background:var(--navy-3);color:var(--navy)}
+.ped-info{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px 16px;margin-top:12px;font-size:14px}
+.ped-info span{display:block;font-size:12px;color:var(--muted)}
+.ped-info b{font-weight:600;word-break:break-word}
+.ped-itens{margin-top:14px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.pi-cab{display:flex;justify-content:space-between;gap:8px;background:var(--navy-3);color:var(--navy);font-weight:600;font-size:13px;padding:8px 12px}
+.pi{display:flex;gap:10px;align-items:center;padding:9px 12px;border-top:1px solid var(--line)}
+.pi>div:first-child{flex:1;min-width:0}
+.pi b{display:block;font-size:14px}
+.pi span{display:block;font-size:13px;color:var(--muted);word-break:break-word}
+.pi .q{font-family:var(--disp);font-weight:700;font-size:20px;color:var(--navy);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.pi .q small{display:block;font-family:var(--body);font-size:11px;font-weight:600;color:var(--muted)}
+.lp{display:flex;align-items:center;gap:10px;padding:11px 16px;border-top:1px solid var(--line);cursor:pointer}
+.lp:first-child{border-top:0}.lp:hover{background:#F7F9FC}
+.lp-tx{flex:1;min-width:0}
+.lp-tx b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lp-tx span{display:block;font-size:13px;color:var(--muted)}
+.lp .tag{flex:none}
+.ped-txt{white-space:pre-wrap;font-size:12px;max-height:260px;overflow:auto;background:#F7F9FC;border:1px solid var(--line);border-radius:8px;padding:10px}
 .form>*{min-width:0}
 </style>
 </head>
@@ -370,7 +391,7 @@ div.f em{font-style:normal;color:var(--orange)}
 /* ═══════════════════════════════════════════════════════════
    PORTOEX · Controle de Estoque — Firebase Realtime Database
    ═══════════════════════════════════════════════════════════ */
-const VERSAO = 'v2026.10.06-c';
+const VERSAO = 'v2026.10.13-a';
 const RAIZ = 'estoque';                      // nó raiz deste app no banco
 const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyC7z_sLiojkDBmOFK4pjSCqFACzArfZDts',
@@ -444,7 +465,7 @@ const S = {
   p:{ mes: mesAtual(), cliente:'' }, ocMes: mesAtual()
 };
 const D = { mov:{}, carregado:{}, meses:[], andamento:{}, andOk:false, pendentes:{}, pendOk:false,
-            cad:{}, cadOk:false, usuarios:{}, usuOk:false, ocupacao:{}, meta:{} };
+            cad:{}, cadOk:false, usuarios:{}, usuOk:false, ocupacao:{}, meta:{}, pedidos:{}, pedOk:false };
 
 /* ═══════════ FIREBASE ═══════════ */
 let root = null, conectado = false, authOk = false, fbErro = '', ultimoErro = '', gravando = false;
@@ -473,6 +494,7 @@ function ouvir(){
   root.child('usuarios').on('value', s => { D.usuarios = s.val() || {}; D.usuOk = true; validarSessao(); agendar(); }, erroLeitura);
   root.child('meta').on('value', s => { D.meta = s.val() || {}; agendar(); }, erroLeitura);
   root.child('meses').on('value', s => { D.meses = Object.keys(s.val() || {}).sort(); agendar(); }, erroLeitura);
+  root.child('pedidosEmail').on('value', s => { D.pedidos = s.val() || {}; D.pedOk = true; processarRecebidos(); agendar(); }, erroLeitura);
   garantirMeses([mesAtual(), mesAnterior(), ...mesesPedidos]);
   Object.keys(ouvindoOcup).forEach(m => { delete ouvindoOcup[m]; garantirOcup(m); });
 }
@@ -675,8 +697,9 @@ function telaLogin(msg){
 function sair(msg){ store.del(K.sess); S.user = null; S.menu = false; fecharModal(); telaLogin(msg || ''); }
 
 /* ═══════════ CASCA E RENDERIZAÇÃO (sem piscar) ═══════════ */
-const ABAS = [['operacao','Operação'],['lancamentos','Lançamentos'],['painel','Painel'],['cadastros','Cadastros']];
+const ABAS = [['operacao','Operação'],['pedidos','Pedidos'],['lancamentos','Lançamentos'],['painel','Painel'],['cadastros','Cadastros']];
 const ICO = {
+  pedidos:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/></svg>',
   operacao:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>',
   lancamentos:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></svg>',
   painel:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
@@ -693,7 +716,7 @@ function render(){
   }
   const ht = htmlTopo();
   if(ht !== htmlAnt.topo){ $('#topo').innerHTML = ht; htmlAnt.topo = ht; }
-  const views = { operacao:vOperacao, lancamentos:vLancamentos, painel:vPainel, cadastros:vCadastros };
+  const views = { operacao:vOperacao, pedidos:vPedidos, lancamentos:vLancamentos, painel:vPainel, cadastros:vCadastros };
   const hm = views[S.tab]();
   if(hm !== htmlAnt.main){
     const busca = document.activeElement && document.activeElement.name === 'px-busca-lanc' ? document.activeElement.selectionStart : null;
@@ -705,6 +728,8 @@ function render(){
 function htmlTopo(){
   const abas = ABAS.filter(a => a[0] !== 'cadastros' || isAdmin());
   const nOp = Object.keys(D.andamento).length + aguardando().length;
+  const nPed = pedidosNovos().length;
+  const cont = k => k === 'operacao' ? nOp : k === 'pedidos' ? nPed : 0;
   return `
     <div class="topo-in">
       <div class="marca"><b>PORTO<i>EX</i></b><span>Controle de Estoque</span></div>
@@ -721,10 +746,10 @@ function htmlTopo(){
       </div>
     </div>
     <nav class="abas"><div class="abas-in" role="tablist">
-      ${abas.map(a => `<button role="tab" aria-selected="${S.tab === a[0]}" onclick="irAba('${a[0]}')">${a[1]}${a[0] === 'operacao' && nOp ? ` (${nOp})` : ''}</button>`).join('')}
+      ${abas.map(a => `<button role="tab" aria-selected="${S.tab === a[0]}" onclick="irAba('${a[0]}')">${a[1]}${cont(a[0]) ? ` (${cont(a[0])})` : ''}</button>`).join('')}
     </div></nav>
     <nav class="nav-baixo" aria-label="Menu principal">
-      ${abas.map(a => `<button aria-current="${S.tab === a[0] ? 'page' : 'false'}" onclick="irAba('${a[0]}')">${ICO[a[0]]}<span>${a[1]}</span>${a[0] === 'operacao' && nOp ? `<b class="badge">${nOp}</b>` : ''}</button>`).join('')}
+      ${abas.map(a => `<button aria-current="${S.tab === a[0] ? 'page' : 'false'}" onclick="irAba('${a[0]}')">${ICO[a[0]]}<span>${a[1]}</span>${cont(a[0]) ? `<b class="badge">${cont(a[0])}</b>` : ''}</button>`).join('')}
     </nav>`;
 }
 function irAba(t){ S.tab = t; S.menu = false; render(); window.scrollTo(0, 0); }
@@ -803,8 +828,289 @@ function enviarAgora(){ ultimoErro = ''; emVoo.clear(); flush(); toast(lerFila()
 function cancelarAnd(id){
   const a = D.andamento[id];
   if(!a || !confirm(`Cancelar a operação de ${a.cliente} (${a.mov})?\nEla será descartada sem gerar lançamento.`)) return;
-  enqueue({ t:'del', p:'andamento/' + id });
-  toast('Operação cancelada.');
+  enqueue({ t:'del', p:'andamento/' + id }, ...(a.pedEmail && D.pedidos[a.pedEmail] ? [{ t:'upd', p:'pedidosEmail/' + a.pedEmail, v:{ status:'NOVO', andId:null, iniPor:null, iniMs:null } }] : []));
+  toast(a.pedEmail ? 'Operação cancelada. O pedido voltou para a lista de Pedidos.' : 'Operação cancelada.');
+}
+
+/* ══════════ PEDIDOS (e-mail / PDF) ══════════
+   Nó estoque/pedidosEmail/{id}: um pedido recebido. Pode entrar de duas formas:
+   - "Importar PDF" nesta tela (origem PDF): o app lê o PDF na hora;
+   - automação externa (origem EMAIL, ex.: Power Automate) gravando {origem, recebido, remetente, assunto, arquivo, pdfB64}:
+     o primeiro aparelho aberto lê o PDF, preenche os campos e move o arquivo para estoque/pedidosPdf/{id}.
+   status: NOVO → INICIADO (separação em andamento) → SEPARADO; ou DESCARTADO / DUPLICADO. */
+const PED_ST = { NOVO:'NOVO', INI:'INICIADO', SEP:'SEPARADO', DESC:'DESCARTADO', DUP:'DUPLICADO' };
+const numBR = s => { const v = parseFloat(String(s == null ? '' : s).replace(/\./g, '').replace(',', '.')); return isNaN(v) ? 0 : v; };
+const LEITORES = [
+  { id:'SEGER', nome:'Seger', depos:['SEGER'],
+    reconhece: t => /SEGER COMERCIAL/i.test(t) || /ROMANEIO DE VENDA/i.test(t),
+    ler(t){
+      const p = { tipo:'ROM' };
+      let m = t.match(/ROMANEIO DE VENDA\s+(\d{4}\s*\/\s*\d{2}\s*-\s*\d{3,5})/i); if(m) p.numero = m[1].replace(/\s/g, '');
+      m = t.match(/ROMANEIO DE VENDA\s+\d{4}\s*\/\s*\d{2}\s*-\s*\d{3,5}\s+(.+?)\s{2,}(.+?)(?:\s{2,}|$)/i);
+      if(m){ p.destinatario = m[1].trim(); if(!/N[ÚU]MEROS DE S[ÉE]RIE/i.test(m[2])) p.endereco = m[2].trim(); }
+      m = t.match(/CIDADE:\s*(.*?)\s*ESTADO\s*([A-Z]{2})/i); if(m){ p.cidade = m[1].trim(); p.uf = m[2].toUpperCase(); }
+      m = t.match(/CNPJ:\s*([\d.\/-]{14,20})/i); if(m) p.cnpj = m[1];
+      m = t.match(/FONE:\s+(.+?)\s{2,}CNPJ/i); if(m && !/^CNPJ/i.test(m[1])) p.contato = m[1].trim();
+      m = t.match(/([\d.]+,\d{2})\s*R\$/); if(m) p.total = numBR(m[1]);
+      p.itens = [];
+      const re = /(?:^|\s)(\d{1,3})\s+(\d{2}[A-Z0-9]{5,12})\s+(\S+)\s+(\d+(?:,\d+)?)\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})/g;
+      let x; while((x = re.exec(t))) p.itens.push({ cod:x[2], desc:x[3], qtd:numBR(x[4]), un:'UN', valor:numBR(x[6]) });
+      return p;
+    } },
+  { id:'WINEOCLOCK', nome:'Ivini / Wineoclock', depos:['WINEOCLOCK','IVINI','WINE'],
+    reconhece: t => /WINEOCLOCK/i.test(t) || (/Pedido de Venda N/i.test(t) && /Itens do Pedido/i.test(t)),
+    ler(t){
+      const p = { tipo:'PED' };
+      let m = t.match(/Pedido de Venda N[º°o.]*\s*(\d+)/i); if(m) p.numero = m[1];
+      m = t.match(/Informa[çc][õo]es do Cliente\s+(.+?)\s{2,}CNPJ/i); if(m) p.destinatario = m[1].trim();
+      m = t.match(/Informa[çc][õo]es do Cliente[\s\S]*?CNPJ:\s*([\d.\/-]{14,20})/i); if(m) p.cnpj = m[1];
+      m = t.match(/Endere[çc]o:\s+(.+?)\s{2,}Bairro/i); if(m) p.endereco = m[1].trim();
+      m = t.match(/Cidade:\s+(.+?)\s+-\s+([A-Z]{2})\b/); if(m){ p.cidade = m[1].trim(); p.uf = m[2]; }
+      m = t.match(/\bTotal:\s+([\d.]+,\d{2})/); if(m) p.total = numBR(m[1]);
+      m = t.match(/Previs[ãa]o de Faturamento:\s+(\d{2}\/\d{2}\/\d{4})/i); if(m) p.previsao = m[1];
+      m = t.match(/Vendedor:\s+(.+?)(?:\s{2,}|$)/i); if(m) p.vendedor = m[1].trim();
+      p.itens = [];
+      const ini = t.search(/Itens do Pedido/i), fim = t.search(/Subtotal:/i);
+      const sec = (ini >= 0 ? t.slice(ini, fim > ini ? fim : undefined) : t).replace(/\s+/g, ' ');
+      const re = /(?:^|\s)(\d{3,6}) (.+?) ?(\d{4}\.\d{2}\.\d{2}) ([\d.]+,\d{2})(?: ([A-Z]{2,6}))? ([\d.]+,\d{2,4}) ([\d.]+,\d{2})(.*?)(?=\s\d{3,6} [A-Z]|$)/g;
+      let x; while((x = re.exec(sec))){
+        const resto = x[8].split(' ').filter(w => w && !/^(GARRAF|GRF|UN|UND|CX|PC)\.?$/.test(w)).join(' ');
+        const un = x[5] || (/\b(GARRAF|GRF)\b/.test(x[8]) ? 'GRF' : 'UN');
+        p.itens.push({ cod:x[1], desc:(x[2] + ' ' + resto).trim(), qtd:numBR(x[4]), un, valor:numBR(x[7]) });
+      }
+      return p;
+    } }
+];
+function lerPedidoTexto(texto){
+  const t = String(texto || '');
+  const L = LEITORES.find(l => l.reconhece(t));
+  if(!L) return { layout:'', itens:[], sku:0, un:0, texto:t.slice(0, 20000) };
+  const p = L.ler(t);
+  p.layout = L.id; p.deposNome = L.nome;
+  p.sku = p.itens.length; p.un = p.itens.reduce((s, i) => s + (i.qtd || 0), 0);
+  if(!p.itens.length) p.texto = t.slice(0, 20000);   // layout conhecido mas itens não lidos: guarda o texto para conferência
+  return p;
+}
+
+/* pdf.js carregado só quando precisa */
+let pdfJsProm = null;
+function carregarPdfJs(){
+  if(window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if(pdfJsProm) return pdfJsProm;
+  pdfJsProm = new Promise((ok, falha) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload = () => { try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; ok(window.pdfjsLib); }catch(e){ falha(e); } };
+    s.onerror = () => { pdfJsProm = null; falha(new Error('Não foi possível carregar o leitor de PDF. Verifique a internet.')); };
+    document.head.appendChild(s);
+  });
+  return pdfJsProm;
+}
+/* texto do PDF com o layout preservado: itens da mesma linha separados por 2 espaços, linhas por quebra */
+async function textoDoPdf(bytes){
+  const lib = await carregarPdfJs();
+  const doc = await lib.getDocument({ data:bytes }).promise;
+  const linhasTxt = [];
+  for(let n = 1; n <= doc.numPages; n++){
+    const pg = await doc.getPage(n);
+    const tc = await pg.getTextContent();
+    const its = tc.items.filter(i => i.str && i.str.trim()).map(i => ({ s:i.str, x:i.transform[4], y:i.transform[5], w:i.width || 0, h:Math.abs(i.transform[3]) || i.height || 8 }));
+    its.sort((a, b) => (b.y - a.y) || (a.x - b.x));
+    const linhas = [];
+    its.forEach(i => { const l = linhas.find(l => Math.abs(l.y - i.y) <= Math.max(2, i.h * 0.35)); if(l) l.its.push(i); else linhas.push({ y:i.y, its:[i] }); });
+    linhas.sort((a, b) => b.y - a.y).forEach(l => {
+      l.its.sort((a, b) => a.x - b.x);
+      let txt = '', ant = null;
+      l.its.forEach(i => {
+        if(ant){ const gap = i.x - (ant.x + ant.w); txt += gap < 0 ? ' ' : gap < i.h * 0.12 ? '' : gap < i.h * 0.6 ? ' ' : '  '; }
+        txt += i.s; ant = i;
+      });
+      linhasTxt.push(txt.trim());
+    });
+  }
+  return linhasTxt.join('  \n');
+}
+function b64DeBytes(u8){ let s = ''; for(let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
+function bytesDeB64(b64){ const s = atob(String(b64).replace(/^data:[^,]*,/, '').replace(/\s/g, '')); const u = new Uint8Array(s.length); for(let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; }
+
+const msDe = v => { if(v == null || v === '') return 0; if(typeof v === 'number') return v; const n = Number(v); if(!isNaN(n)) return n; const d = new Date(v); return isNaN(d) ? 0 : d.getTime(); };
+function normPed(p, id){
+  p = p || {};
+  return Object.assign({}, p, { id, status:p.status || PED_ST.NOVO, recebido:msDe(p.recebido) || msDe(p.importadoMs), itens:Array.isArray(p.itens) ? p.itens.filter(Boolean) : Object.values(p.itens || {}),
+    sku:+p.sku || 0, un:+p.un || 0, numero:p.numero || '', destinatario:p.destinatario || '', deposNome:p.deposNome || '' });
+}
+const listaPedidos = () => Object.entries(D.pedidos).map(([id, p]) => normPed(p, id));
+const pedidosNovos = () => listaPedidos().filter(p => p.status === PED_ST.NOVO && !p.pdfB64);
+const nfDoPed = p => p.numero ? (p.tipo || 'PED') + ' ' + p.numero : '';
+const tituloPed = p => p.destinatario || p.assunto || p.arquivo || 'Pedido sem identificação';
+const idDoPed = p => (p.layout && p.numero) ? chave('P_' + p.layout + '_' + p.numero) : '';
+function duplicadoDe(p, id){
+  const k = idDoPed(p); if(!k) return '';
+  const o = listaPedidos().find(q => q.id !== id && idDoPed(q) === k && q.status !== PED_ST.DUP);
+  return o ? o.id : '';
+}
+function sugerirCliente(p){
+  const lista = ativos('clientes');
+  const L = LEITORES.find(l => l.id === p.layout);
+  const tokens = (L ? L.depos : []).slice();
+  const dom = String(p.remetente || '').split('@')[1]; if(dom) tokens.push(dom.split('.')[0].toUpperCase());
+  for(const t of tokens){ const c = lista.find(n => up(n).includes(t)); if(c) return c; }
+  return '';
+}
+const movSeparacao = () => ativos('movimentos').find(ehSeparacao) || '';
+const tagPed = p => ({ NOVO:'<span class="tag ag">Novo</span>', INICIADO:'<span class="tag run">Em separação</span>', SEPARADO:'<span class="tag ok">Separado</span>',
+  DESCARTADO:'<span class="tag off">Descartado</span>', DUPLICADO:'<span class="tag off">Duplicado</span>' })[p.status] || '';
+
+/* pedidos gravados pela automação com o PDF bruto: lê e completa (uma vez, em qualquer aparelho aberto) */
+const lendoPed = new Set();
+async function processarRecebidos(){
+  if(!S.user || !root || !authOk) return;
+  for(const [id, raw] of Object.entries(D.pedidos)){
+    if(!raw || !raw.pdfB64 || lendoPed.has(id)) continue;
+    lendoPed.add(id);
+    try{
+      const b64 = String(raw.pdfB64);
+      const p = lerPedidoTexto(await textoDoPdf(bytesDeB64(b64)));
+      const dup = duplicadoDe(p, id);
+      await root.child('pedidosPdf/' + id).set(b64.replace(/^data:[^,]*,/, ''));
+      await root.child('pedidosEmail/' + id).update(limpa(Object.assign(p, { pdfB64:null, temPdf:true, lidoMs:Date.now(), lidoDisp:DISP,
+        recebido:msDe(raw.recebido) || Date.now(), status:dup ? PED_ST.DUP : (raw.status || PED_ST.NOVO), dupDe:dup || null })));
+    }catch(e){
+      console.warn('Falha ao ler PDF do pedido', id, e);
+      try{ await root.child('pedidosEmail/' + id).update({ pdfB64:null, temPdf:false, erroLeitura:String(e && e.message || e).slice(0, 300), status:raw.status || PED_ST.NOVO, recebido:msDe(raw.recebido) || Date.now() }); }catch(_){}
+    }finally{ lendoPed.delete(id); }
+  }
+}
+
+function vPedidos(){
+  const L = listaPedidos().sort((a, b) => b.recebido - a.recebido);
+  const novos = L.filter(p => p.status === PED_ST.NOVO && !p.pdfB64).sort((a, b) => a.recebido - b.recebido);
+  const lendo = L.filter(p => p.pdfB64);
+  const lim = Date.now() - 7 * 86400000;
+  const tratados = L.filter(p => p.status !== PED_ST.NOVO && (p.iniMs || p.descMs || p.sepMs || p.recebido) >= lim);
+  return `
+  <div class="acoes">
+    <label class="btn btn-pri btn-g" style="cursor:pointer">＋ Importar PDF do pedido<input type="file" accept="application/pdf,.pdf" multiple hidden onchange="importarPdfs(this.files);this.value=''"></label>
+  </div>
+  <p class="nota">Pedidos que chegam por e-mail ao Estoque. Leitura automática: <b>romaneio Seger</b> e <b>pedido de venda Ivini/Wineoclock</b>; outros PDFs entram para conferência manual.</p>
+  ${!D.pedOk ? '<p class="nota">Carregando pedidos…</p>' : ''}
+  ${lendo.length ? `<p class="nota">Lendo ${lendo.length} PDF${lendo.length > 1 ? 's' : ''} recebido${lendo.length > 1 ? 's' : ''} por e-mail…</p>` : ''}
+
+  <section class="secao">
+    <h2>Novos pedidos<small>${novos.length ? novos.length + ' pedido' + (novos.length > 1 ? 's' : '') : ''}</small></h2>
+    ${novos.length ? `<div class="cards-and cp-grid">${novos.map(p => `
+      <article class="and cp ped-card" onclick="abrirPedido('${esc(p.id)}')" title="${esc(tituloPed(p))}">
+        <div class="cp-top"><span class="cli">${esc(tituloPed(p))}</span><span class="cp-t">${p.recebido ? `⏱ <span class="relogio sm" data-start="${isoLocal(new Date(p.recebido))}" data-fmt="espera" data-lim="14400">--</span>` : ''}</span></div>
+        <div class="ped">${esc(nfDoPed(p) || 'Sem nº')}</div>
+        <div class="cp-meta">${esc(p.deposNome || (p.remetente || '').split('@')[1] || 'Layout não reconhecido')}${p.cidade ? ' | ' + esc(p.cidade) + (p.uf ? '/' + esc(p.uf) : '') : ''}</div>
+        <div class="cp-meta">${p.sku ? nf(p.sku) + ' ite' + (p.sku > 1 ? 'ns' : 'm') + ' | ' + nf(p.un) + ' un.' : '<b style="color:var(--orange-2)">Conferir manualmente</b>'}</div>
+        <div class="cp-rod"><button class="lnk" style="color:var(--navy)" onclick="event.stopPropagation();abrirPedido('${esc(p.id)}')">Ver</button><button class="btn btn-pri btn-p" onclick="event.stopPropagation();iniciarPedido('${esc(p.id)}')">Separar</button></div>
+      </article>`).join('')}</div>`
+    : `<div class="vazio">Nenhum pedido novo. Toque em <b>Importar PDF do pedido</b> para adicionar o PDF que veio no e-mail.</div>`}
+  </section>
+
+  <section class="secao">
+    <h2>Tratados nos últimos 7 dias<small>${tratados.length || ''}</small></h2>
+    ${tratados.length ? `<div class="lista-hoje">${tratados.map(p => `
+      <div class="lp" onclick="abrirPedido('${esc(p.id)}')">
+        <div class="lp-tx"><b>${esc(tituloPed(p))}</b><span>${esc(nfDoPed(p) || 'Sem nº')}${p.deposNome ? ' | ' + esc(p.deposNome) : ''}${p.recebido ? ' | ' + dataBR(isoDe(new Date(p.recebido))) : ''}</span></div>
+        ${tagPed(p)}
+      </div>`).join('')}</div>`
+    : `<div class="vazio">Nada tratado nos últimos 7 dias.</div>`}
+  </section>`;
+}
+
+async function importarPdfs(files){
+  files = Array.from(files || []); if(!files.length) return;
+  if(!root || !authOk) return toast('Sem conexão com o banco. Tente de novo quando estiver online.', true);
+  let ok = 0, rep = 0, manual = 0;
+  try{
+    for(let i = 0; i < files.length; i++){
+      const f = files[i];
+      progresso('Lendo ' + f.name + '…', files.length > 1 ? i / files.length : null);
+      const bytes = new Uint8Array(await f.arrayBuffer());
+      const p = lerPedidoTexto(await textoDoPdf(bytes.slice()));
+      const id = idDoPed(p) || novoId();
+      if(D.pedidos[id]){ rep++; continue; }
+      const rec = Object.assign(p, { origem:'PDF', arquivo:f.name, recebido:Date.now(), importadoPor:S.user.usuario, importadoMs:Date.now(), disp:DISP, status:PED_ST.NOVO, temPdf:false });
+      if(bytes.length <= 4 * 1024 * 1024){
+        try{ await comTimeout(root.child('pedidosPdf/' + id).set(b64DeBytes(bytes)), 30000, 'tempo'); rec.temPdf = true; }catch(e){ console.warn('PDF não guardado', e); }
+      }
+      enqueue({ t:'set', p:'pedidosEmail/' + id, v:rec });
+      ok++; if(!p.layout || !p.itens.length) manual++;
+    }
+  }catch(e){ toast('Não foi possível ler o PDF: ' + e.message, true); }
+  finally{ progressoFim(); }
+  const msg = [ok ? ok + ' pedido(s) importado(s)' : '', rep ? rep + ' já estava(m) na lista' : '', manual ? manual + ' para conferir manualmente' : ''].filter(Boolean).join(' | ');
+  if(msg) toast(msg + '.', !ok);
+}
+
+function abrirPedido(id){
+  const raw = D.pedidos[id]; if(!raw){ toast('Pedido não encontrado.', true); return; }
+  const p = normPed(raw, id);
+  const linha = (l, v) => v ? `<div><span>${l}</span><b>${esc(v)}</b></div>` : '';
+  const itens = p.itens.length ? `<div class="ped-itens">
+      <div class="pi-cab"><span>Itens do pedido</span><span>${nf(p.sku)} ite${p.sku > 1 ? 'ns' : 'm'} | ${nf(p.un)} un.</span></div>
+      ${p.itens.map(i => `<div class="pi"><div><b>${esc(i.cod)}</b><span>${esc(i.desc)}</span></div><div class="q">${nf(i.qtd)}<small>${esc(i.un || '')}</small></div></div>`).join('')}
+    </div>`
+    : `<div class="erro" style="margin-top:12px">Os itens não foram lidos automaticamente${p.erroLeitura ? ' (' + esc(p.erroLeitura) + ')' : ''}. Confira pelo PDF.</div>`;
+  const corpo = `
+    <div class="resumo-op"><div class="cli">${esc(tituloPed(p))}</div><div class="meta">${esc(nfDoPed(p) || 'Sem número')} ${tagPed(p)}</div></div>
+    <div class="ped-info">
+      ${linha('Depositante', p.deposNome)}${linha('Destino', [p.endereco, [p.cidade, p.uf].filter(Boolean).join('/')].filter(Boolean).join(' - '))}
+      ${linha('CNPJ destino', p.cnpj)}${linha('Contato', p.contato)}${linha('Previsão de faturamento', p.previsao)}
+      ${linha('Valor', p.total ? 'R$ ' + Number(p.total).toLocaleString('pt-BR', { minimumFractionDigits:2 }) : '')}
+      ${linha('Recebido', p.recebido ? fmtDataHora(p.recebido) : '')}${linha('Remetente', p.remetente)}${linha('Assunto', p.assunto)}
+      ${linha('Arquivo', p.arquivo)}${linha('Importado por', p.importadoPor)}
+      ${linha('Separação iniciada', p.iniMs ? fmtDataHora(p.iniMs) + (p.iniPor ? ' por ' + p.iniPor : '') : '')}
+      ${linha('Separado', p.sepMs ? fmtDataHora(p.sepMs) : '')}${linha('Descartado', p.descMs ? fmtDataHora(p.descMs) + (p.descPor ? ' por ' + p.descPor : '') : '')}
+      ${p.status === PED_ST.DUP ? linha('Duplicado de', p.dupDe) : ''}
+    </div>
+    ${itens}
+    ${p.texto ? `<details style="margin-top:12px"><summary class="nota" style="cursor:pointer">Texto lido do PDF</summary><pre class="ped-txt">${esc(p.texto)}</pre></details>` : ''}`;
+  const bPdf = p.temPdf ? `<button class="btn btn-sec" onclick="verPdfPedido('${esc(id)}')">Ver PDF</button>` : '';
+  let rodape;
+  if(p.status === PED_ST.NOVO) rodape = `<button class="btn btn-del esq" onclick="descartarPedido('${esc(id)}')">Descartar</button>${bPdf}<button class="btn btn-pri" onclick="iniciarPedido('${esc(id)}')">▶ Iniciar separação</button>`;
+  else rodape = `${isAdmin() ? `<button class="btn btn-del esq" onclick="excluirPedido('${esc(id)}')">Excluir</button>` : ''}${(p.status === PED_ST.DESC || p.status === PED_ST.DUP) ? `<button class="btn btn-sec" onclick="reabrirPedido('${esc(id)}')">Voltar para novos</button>` : ''}${bPdf}<button class="btn btn-sec" onclick="fecharModal()">Fechar</button>`;
+  abrirModal('Pedido', corpo, rodape);
+}
+function iniciarPedido(id){
+  const raw = D.pedidos[id]; if(!raw) return toast('Pedido não encontrado.', true);
+  const p = normPed(raw, id);
+  if(p.status !== PED_ST.NOVO) return toast('Este pedido já foi tratado (' + p.status.toLowerCase() + ').', true);
+  if(!movSeparacao()) toast('Nenhum movimento de separação ativo nos Cadastros: escolha o movimento no formulário.', true);
+  fecharModal();
+  setTimeout(() => abrirForm('iniciar', null, { cliente:sugerirCliente(p), mov:movSeparacao(), nf:nfDoPed(p), pedEmail:id, pedSku:p.sku, pedUn:p.un, pedDest:tituloPed(p) }), 0);
+}
+function descartarPedido(id){
+  const p = D.pedidos[id]; if(!p) return;
+  const motivo = prompt('Descartar este pedido da lista? Informe o motivo (opcional):', '');
+  if(motivo === null) return;
+  enqueue({ t:'upd', p:'pedidosEmail/' + id, v:{ status:PED_ST.DESC, descPor:S.user.usuario, descMs:Date.now(), descObs:motivo.trim() || null } });
+  fecharModal(); toast('Pedido descartado.');
+}
+function reabrirPedido(id){
+  enqueue({ t:'upd', p:'pedidosEmail/' + id, v:{ status:PED_ST.NOVO, descPor:null, descMs:null, descObs:null, dupDe:null } });
+  fecharModal(); toast('O pedido voltou para Novos pedidos.');
+}
+function excluirPedido(id){
+  if(!isAdmin() || !confirm('Excluir este pedido e o PDF dele definitivamente?')) return;
+  enqueue({ t:'del', p:'pedidosEmail/' + id }, { t:'del', p:'pedidosPdf/' + id });
+  fecharModal(); toast('Pedido excluído.');
+}
+async function verPdfPedido(id){
+  if(!root) return;
+  const jan = window.open('', '_blank');
+  try{
+    progresso('Abrindo o PDF…');
+    const s = await comTimeout(root.child('pedidosPdf/' + id).once('value'), 30000, 'O banco não respondeu. Verifique a conexão.');
+    if(!s.val()) throw new Error('O PDF deste pedido não foi guardado.');
+    const blob = new Blob([bytesDeB64(s.val())], { type:'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    if(jan){ jan.location.href = url; setTimeout(() => URL.revokeObjectURL(url), 60000); }
+    else { const p = D.pedidos[id] || {}; baixar(blob, (p.arquivo || ('pedido_' + (p.numero || id))).replace(/[\\/:*?"<>|]/g, '_').replace(/(\.pdf)?$/i, '.pdf')); }
+  }catch(e){ if(jan) jan.close(); toast(e.message, true); }
+  finally{ progressoFim(); }
 }
 
 /* ══════════ LANÇAMENTOS ══════════ */
@@ -1088,13 +1394,14 @@ function abrirForm(modo, id, rec){
   const agora = agoraHora(), hoje = hojeISO();
   let r, titulo, corpo, rodape;
   if(modo === 'iniciar'){
-    r = { data:hoje, hi:agora };
-    titulo = 'Iniciar operação';
-    corpo = `<form id="fOp" class="form" ${CAMPO} onsubmit="return false">${camposInicio(r)}</form>`;
+    r = Object.assign({ data:hoje, hi:agora }, rec || {});
+    titulo = r.pedEmail ? 'Iniciar separação do pedido' : 'Iniciar operação';
+    corpo = (r.pedEmail ? `<div class="resumo-op"><div class="cli">${esc(r.pedDest || '')}</div><div class="meta">${esc(r.nf)} | ${nf(r.pedSku)} ite${r.pedSku == 1 ? 'm' : 'ns'} | ${nf(r.pedUn)} unidades${r.cliente ? '' : '<br><b>Selecione o cliente (depositante) abaixo.</b>'}</div></div>` : '')
+      + `<form id="fOp" class="form" ${CAMPO} onsubmit="return false">${camposInicio(r)}</form>`;
     rodape = `<button class="btn btn-sec" onclick="fecharModal()">Voltar</button><button class="btn btn-pri" id="bOk">▶ Iniciar agora</button>`;
   } else if(modo === 'finalizar'){
     const a = D.andamento[id]; if(!a){ toast('Operação não encontrada. Talvez já tenha sido finalizada em outro aparelho.', true); return; }
-    r = Object.assign({ id }, a, { hf:agora, sku:0, vol:0, un:0, pal:0, div:'NÃO', obs:obsPadrao(a.mov) });
+    r = Object.assign({ id }, a, { hf:agora, sku:+a.pedSku || 0, vol:0, un:+a.pedUn || 0, pal:0, div:'NÃO', obs:obsPadrao(a.mov) });
     titulo = 'Finalizar operação';
     corpo = `<div class="resumo-op"><div class="cli">${esc(a.cliente)}</div><div class="meta">${esc(a.mov)} | ${esc(a.colab)}${a.nf ? ' | ' + esc(a.nf) : ''}<br>Início ${dataBR(a.data)} às ${esc(a.hi)}</div></div>
       <form id="fOp" class="form" ${CAMPO} onsubmit="return false"><input type="hidden" name="hi" value="${esc(a.hi)}"><input type="hidden" name="mov" value="${esc(a.mov)}">${camposFim(r)}</form>`;
@@ -1198,13 +1505,19 @@ function salvarForm(modo, id, rOrig){
     if(modo === 'iniciar'){
       const novo = { data:reg.data, hi:reg.hi, cliente:up(reg.cliente), mov:up(reg.mov), colab:up(reg.colab), nf:String(reg.nf || '').trim(), usuario:S.user.usuario, inicio:Date.now(), disp:DISP };
       if(!novo.data || !novo.hi || !novo.cliente || !novo.mov || !novo.colab) return erroForm('Preencha todos os campos obrigatórios.');
-      enqueue({ t:'set', p:'andamento/' + novoId(), v:novo });
-      fecharModal(); toast('Operação iniciada.'); return;
+      const aid = novoId(), ped = rOrig && rOrig.pedEmail;
+      if(ped){ novo.pedEmail = ped; novo.pedSku = +rOrig.pedSku || 0; novo.pedUn = +rOrig.pedUn || 0; }
+      enqueue({ t:'set', p:'andamento/' + aid, v:novo },
+        ...(ped ? [{ t:'upd', p:'pedidosEmail/' + ped, v:{ status:'INICIADO', andId:aid, iniPor:S.user.usuario, iniMs:Date.now() } }] : []));
+      fecharModal(); toast(ped ? 'Separação iniciada. Ela está em Operação > Em andamento.' : 'Operação iniciada.');
+      if(ped) irAba('operacao');
+      return;
     }
     if(modo === 'finalizar'){
       const a = D.andamento[id]; if(!a) return erroForm('Esta operação não está mais em andamento (talvez finalizada em outro aparelho).');
       const rec = novoRegistro(Object.assign({}, a, { hf:reg.hf, sku:reg.sku, vol:reg.vol, un:reg.un, pal:reg.pal, div:reg.div, obs:reg.obs }), id);
-      enqueue(...opsGravarReg(rec), { t:'del', p:'andamento/' + id });
+      enqueue(...opsGravarReg(rec), { t:'del', p:'andamento/' + id },
+        ...(a.pedEmail && D.pedidos[a.pedEmail] ? [{ t:'upd', p:'pedidosEmail/' + a.pedEmail, v:{ status:'SEPARADO', regId:rec.id, sepMs:Date.now() } }] : []));
       fecharModal(); toast(rec.stEnt === ST_AG ? msgSep : 'Operação finalizada e salva.'); return;
     }
     if(modo === 'novo'){
