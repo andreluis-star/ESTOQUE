@@ -18,6 +18,7 @@ window.addEventListener('unhandledrejection',function(e){try{var m=(e.reason&&(e
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 <style>
 :root{
   --navy:#1A3A6E; --navy-2:#122B54; --navy-3:#E6ECF5;
@@ -401,7 +402,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-conten
 /* ═══════════════════════════════════════════════════════════
    PORTOEX · Controle de Estoque — Firebase Realtime Database
    ═══════════════════════════════════════════════════════════ */
-const VERSAO = 'v2026.10.13-b';
+const VERSAO = 'v2026.10.15-a';
 const RAIZ = 'estoque';                      // nó raiz deste app no banco
 const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyC7z_sLiojkDBmOFK4pjSCqFACzArfZDts',
@@ -1010,6 +1011,7 @@ function vPedidos(){
   return `
   <div class="acoes">
     <label class="btn btn-pri btn-g" style="cursor:pointer">＋ Importar PDF do pedido<input type="file" accept="application/pdf,.pdf,application/json,.json" multiple hidden onchange="importarArquivos(this.files);this.value=''"></label>
+    <button type="button" class="btn btn-sec btn-g" onclick="buscarPedidosEmail()">✉ Buscar pedidos do e-mail</button>
   </div>
   <p class="nota">Pedidos que chegam por e-mail ao Estoque. Aceita o PDF do pedido ou um lote de pedidos (.json). Leitura automática: <b>romaneio Seger</b> e <b>pedido de venda Ivini/Wineoclock</b>; outros PDFs entram para conferência manual.</p>
   ${!D.pedOk ? '<p class="nota">Carregando pedidos…</p>' : ''}
@@ -1154,8 +1156,13 @@ async function importarArquivos(files){
 async function importarLote(f){
   let dados;
   try{ dados = JSON.parse(await f.text()); }catch(e){ return toast('O arquivo ' + f.name + ' não é um lote de pedidos válido.', true); }
+  importarDadosLote(dados, 'o arquivo ' + f.name);
+}
+/* mesma rotina para o .json e para o lote gravado no Firestore (coleção lotesPedidos) */
+function importarDadosLote(dados, origem){
+  if(dados && !Array.isArray(dados) && dados.formato && dados.formato !== 'PORTOEX-PEDIDOS') return toast('Formato desconhecido em ' + origem + ': ' + dados.formato + '.', true), null;
   const lista = Array.isArray(dados) ? dados : (dados && dados.pedidos) || [];
-  if(!lista.length) return toast('Nenhum pedido no arquivo ' + f.name + '.', true);
+  if(!lista.length) return toast('Nenhum pedido em ' + origem + '.', true), null;
   let ok = 0, rep = 0, manual = 0; const ops = [];
   lista.forEach(r => {
     if(!r) return;
@@ -1172,6 +1179,25 @@ async function importarLote(f){
   });
   if(ops.length) enqueue(...ops);
   toast([ok ? ok + ' pedido(s) importado(s)' : '', rep ? rep + ' já estava(m) na lista' : '', manual ? manual + ' para conferir manualmente' : ''].filter(Boolean).join(' | ') + '.', !ok);
+  return { ok, rep, manual };
+}
+/* lê o lote mais recente gravado pelo usuário robô em Firestore lotesPedidos { geradoEm, periodo, pedidos[] } */
+async function buscarPedidosEmail(){
+  if(!root || typeof firebase === 'undefined' || !firebase.firestore) return toast('Banco indisponível. Verifique a conexão e recarregue o app.', true);
+  if(!D.pedOk) return toast('Aguarde a lista de pedidos terminar de carregar.', true);
+  try{
+    progresso('Buscando pedidos do e-mail…');
+    const q = await comTimeout(firebase.firestore().collection('lotesPedidos').orderBy('geradoEm', 'desc').limit(1).get(), 30000, 'O banco não respondeu. Verifique a conexão.');
+    if(q.empty) return toast('Nenhum lote de pedidos do e-mail disponível ainda.', true);
+    const d = q.docs[0].data(), g = d.geradoEm && d.geradoEm.toDate ? d.geradoEm.toDate().getTime() : msDe(d.geradoEm);
+    const r = importarDadosLote(d, 'o lote do e-mail');
+    if(r) abrirModal('Pedidos do e-mail', `
+      <p style="margin-top:0">Lote ${g ? 'gerado em <b>' + esc(fmtDataHora(g)) + '</b>' : 'mais recente'}${d.periodo ? ' | período: <b>' + esc(typeof d.periodo === 'object' ? JSON.stringify(d.periodo) : d.periodo) + '</b>' : ''}</p>
+      <div class="resumo"><span><b>${nf(r.ok)}</b>importado${r.ok === 1 ? '' : 's'}</span><span><b>${nf(r.rep)}</b>já existia${r.rep === 1 ? '' : 'm'}</span>${r.manual ? `<span><b>${nf(r.manual)}</b>para conferir</span>` : ''}</div>`,
+      `<button class="btn btn-pri" onclick="fecharModal()">OK</button>`);
+  }catch(e){
+    toast(e && e.code === 'permission-denied' ? 'Sem permissão para ler os pedidos do e-mail. Confira as regras do Firestore.' : 'Falha ao buscar os pedidos do e-mail: ' + (e && e.message || e), true);
+  }finally{ progressoFim(); }
 }
 async function verPdfPedido(id){
   if(!root) return;
