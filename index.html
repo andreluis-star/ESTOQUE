@@ -392,6 +392,50 @@ div.f em{font-style:normal;color:var(--orange)}
 a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
 .ped-txt{white-space:pre-wrap;font-size:12px;max-height:260px;overflow:auto;background:#F7F9FC;border:1px solid var(--line);border-radius:8px;padding:10px}
 .form>*{min-width:0}
+
+/* ── Acertos ── */
+.ac-ctrl{background:var(--card);border-radius:12px;padding:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end;box-shadow:0 1px 2px rgba(18,43,84,.08)}
+.ac-ctrl .seg{margin:0}
+.ac-acoes{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin:12px 0}
+.ac-folha{background:#fff;border-radius:12px;box-shadow:0 1px 2px rgba(18,43,84,.08);overflow:hidden}
+.ac-cab{background:#C99A06;color:#3B2A00;font-family:var(--disp);font-weight:700;font-size:22px;padding:10px 16px;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px}
+.ac-cab b{font-size:30px;color:#1F1600;background:rgba(255,255,255,.35);border-radius:6px;padding:0 10px;font-variant-numeric:tabular-nums}
+.ac-cab small{font-family:var(--body);font-weight:500;font-size:12px;color:#4A3800;flex-basis:100%}
+.ac-cli{font-family:var(--disp);font-weight:700;font-size:18px;color:var(--navy);padding:10px 16px 0}
+.ac-wrap{overflow-x:auto}
+table.ac{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+table.ac th{background:#2F6B4F;color:#fff;font-weight:700;font-size:12px;text-transform:none;padding:8px 8px;border:1px solid #255740;text-align:center;line-height:1.2}
+table.ac td{border:1px solid #D3D9D5;padding:5px 8px;white-space:nowrap;text-align:center}
+table.ac td.l{text-align:left}
+table.ac td.tot{background:#A9D18E;font-weight:700}
+table.ac td.neg{color:var(--bad);font-weight:700}
+table.ac tbody tr:nth-child(even) td:not(.tot){background:#F7F9F8}
+table.ac tbody tr{cursor:pointer}
+table.ac tbody tr:hover td:not(.tot){background:#EEF4F0}
+table.ac tfoot td{font-weight:700;border:0;padding:8px}
+.ac-pe{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start;padding:14px 16px 18px}
+table.ac-sub{border-collapse:collapse;font-size:14px;min-width:240px}
+table.ac-sub td{border:1px solid #1F1600;padding:5px 12px;font-weight:700;font-variant-numeric:tabular-nums}
+table.ac-sub td:first-child{background:#FFC000;text-align:center;min-width:130px}
+table.ac-sub td:last-child{text-align:center;min-width:80px;background:#fff}
+table.ac-sub tr.sep td{border:0;background:transparent;height:10px;padding:0}
+table.ac-sub td.neg{color:var(--bad)}
+.ac-res{display:grid;grid-template-columns:repeat(2,auto);gap:4px 16px;font-size:14px;align-content:start}
+.ac-res span{color:var(--muted)}
+.ac-res b{text-align:right;font-variant-numeric:tabular-nums}
+.ac-alerta{margin:10px 16px 0;padding:8px 12px;border-radius:8px;background:var(--orange-3);color:#7A2E06;font-size:13px}
+.sub-grupo{margin-bottom:16px}
+.sub-grupo h4{font-family:var(--disp);font-size:18px;color:var(--navy);margin:0 0 6px}
+@media print{
+  @page{size:A4 landscape;margin:10mm}
+  body{background:#fff}
+  .topo,.nav-baixo,.rodape,.ac-ctrl,.ac-acoes,.no-print,#modal,.toast{display:none!important}
+  main{padding:0!important;max-width:none!important}
+  .ac-folha{box-shadow:none;border-radius:0}
+  table.ac{font-size:10.5px}
+  table.ac td,table.ac th{padding:3px 5px}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
 </style>
 </head>
 <body>
@@ -401,7 +445,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-conten
 /* ═══════════════════════════════════════════════════════════
    PORTOEX · Controle de Estoque — Firebase Realtime Database
    ═══════════════════════════════════════════════════════════ */
-const VERSAO = 'v2026.10.29-a';
+const VERSAO = 'v2026.11.12-a';
 const RAIZ = 'estoque';                      // nó raiz deste app no banco
 const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyC7z_sLiojkDBmOFK4pjSCqFACzArfZDts',
@@ -473,7 +517,8 @@ const ST_AG='AGUARDANDO RETIRADA', ST_EN='ENTREGUE';
 const S = {
   user:null, tab:'operacao', cad:'clientes', menu:false,
   f:{ de: hojeISO().slice(0,8)+'01', ate: hojeISO(), cliente:'', mov:'', colab:'', ent:'', q:'' },
-  p:{ mes: mesAtual(), cliente:'' }, ocMes: mesAtual(), pSelOn:false, pSel:{}
+  p:{ mes: mesAtual(), cliente:'' }, ocMes: mesAtual(), pSelOn:false, pSel:{},
+  a:{ cliente:'', modo:'mes', mes: mesAtual(), de: hojeISO().slice(0,8)+'01', ate: hojeISO() }
 };
 const D = { mov:{}, carregado:{}, meses:[], andamento:{}, andOk:false, pendentes:{}, pendOk:false,
             cad:{}, cadOk:false, usuarios:{}, usuOk:false, ocupacao:{}, meta:{}, pedidos:{}, pedOk:false };
@@ -548,7 +593,7 @@ function garantirOcup(m){
 function normReg(r, id){
   r = r || {};
   return { id: r.id || id, data: r.data || '', hi: r.hi || '', hf: r.hf || '', cliente: r.cliente || '', mov: r.mov || '', colab: r.colab || '',
-    nf: r.nf || '', sku: +r.sku || 0, vol: +r.vol || 0, un: +r.un || 0, pal: +r.pal || 0, div: r.div === 'SIM' ? 'SIM' : 'NÃO', obs: r.obs || '',
+    nf: r.nf || '', subcli: r.subcli || '', sku: +r.sku || 0, vol: +r.vol || 0, un: +r.un || 0, pal: +r.pal || 0, div: r.div === 'SIM' ? 'SIM' : 'NÃO', obs: r.obs || '',
     stEnt: r.stEnt || '', entPor: r.entPor || '', entData: r.entData || '', entHora: r.entHora || '', entObs: r.entObs || '',
     ts: r.ts || null, email: r.email || '', disp: r.disp || '', upd: r.upd || null };
 }
@@ -728,11 +773,12 @@ function telaLogin(msg){
 function sair(msg){ store.del(K.sess); S.user = null; S.menu = false; fecharModal(); telaLogin(msg || ''); }
 
 /* ═══════════ CASCA E RENDERIZAÇÃO (sem piscar) ═══════════ */
-const ABAS = [['operacao','Operação'],['pedidos','Pedidos'],['lancamentos','Lançamentos'],['painel','Painel'],['cadastros','Cadastros']];
+const ABAS = [['operacao','Operação'],['pedidos','Pedidos'],['lancamentos','Lançamentos'],['painel','Painel'],['acertos','Acertos'],['cadastros','Cadastros']];
 const ICO = {
   pedidos:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/></svg>',
   operacao:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>',
   lancamentos:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></svg>',
+  acertos:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
   painel:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
   cadastros:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.6.8 2.6 2.6 3 5.2"/></svg>'
 };
@@ -747,7 +793,7 @@ function render(){
   }
   const ht = htmlTopo();
   if(ht !== htmlAnt.topo){ $('#topo').innerHTML = ht; htmlAnt.topo = ht; }
-  const views = { operacao:vOperacao, pedidos:vPedidos, lancamentos:vLancamentos, painel:vPainel, cadastros:vCadastros };
+  const views = { operacao:vOperacao, pedidos:vPedidos, lancamentos:vLancamentos, painel:vPainel, acertos:vAcertos, cadastros:vCadastros };
   const hm = views[S.tab]();
   if(hm !== htmlAnt.main){
     const busca = document.activeElement && document.activeElement.name === 'px-busca-lanc' ? document.activeElement.selectionStart : null;
@@ -809,7 +855,7 @@ function vOperacao(){
     <h2>Em andamento<small>${and.length ? and.length + ' operaç' + (and.length > 1 ? 'ões' : 'ão') : ''}</small></h2>
     ${and.length ? `<div class="cards-and cp-grid">${and.map(a => `
       <article class="and cp" title="${esc(a.mov)} | início ${dataBR(a.data)} às ${esc((a.hi||'').slice(0,5))}">
-        <div class="cp-top"><span class="cli">${esc(a.cliente)}</span><span class="cp-t">⏱ <span class="relogio sm" data-start="${esc(a.data)}T${esc(a.hi)}">--</span></span></div>
+        <div class="cp-top"><span class="cli">${esc(a.cliente)}${a.subcli ? ' / ' + esc(a.subcli) : ''}</span><span class="cp-t">⏱ <span class="relogio sm" data-start="${esc(a.data)}T${esc(a.hi)}">--</span></span></div>
         <div class="ped">${esc(a.nf || 'Sem nº')}</div>
         <div class="cp-meta">${esc(movCurto(a.mov))} | ${esc(a.colab)}</div>
         <div class="cp-rod"><button class="lnk" onclick="cancelarAnd('${esc(a.id)}')">Cancelar</button><button class="btn btn-nav btn-p" onclick="abrirForm('finalizar','${esc(a.id)}')">Finalizar</button></div>
@@ -834,7 +880,7 @@ function vOperacao(){
     ${concl.length ? `<div class="lista-hoje">${concl.map(r => `
       <div class="lh" onclick="abrirRegistro('${esc(r.id)}','${esc(r.data.slice(0,7))}')">
         <div class="h">${esc(r.hi.slice(0,5))} a ${esc(r.hf.slice(0,5))}</div>
-        <div class="c">${esc(r.cliente)} ${tagEnt(r)}</div>
+        <div class="c">${esc(r.cliente)}${r.subcli ? ' / ' + esc(r.subcli) : ''} ${tagEnt(r)}</div>
         <div class="h">${esc(r.mov)} | ${esc(r.colab)}</div>
         <div class="t">${fmtDurCurto(dur(r.hi, r.hf))}</div>
       </div>`).join('')}</div>`
@@ -1220,7 +1266,7 @@ function filtrados(){
     (!f.de || r.data >= f.de) && (!f.ate || r.data <= f.ate) &&
     (!f.cliente || r.cliente === f.cliente) && (!f.mov || r.mov === f.mov) && (!f.colab || r.colab === f.colab) &&
     (!f.ent || r.stEnt === f.ent) &&
-    (!q || (r.nf + ' ' + r.obs + ' ' + r.cliente + ' ' + r.entPor + ' ' + r.entObs).toUpperCase().includes(q))
+    (!q || (r.nf + ' ' + r.obs + ' ' + r.cliente + ' ' + r.subcli + ' ' + r.entPor + ' ' + r.entObs).toUpperCase().includes(q))
   ).sort((a,b) => (b.data + b.hi).localeCompare(a.data + a.hi));
 }
 const unicos = (campo, tipo) => Array.from(new Set(registros().map(r => r[campo]).filter(Boolean).concat(tipo ? ativos(tipo) : []))).sort();
@@ -1266,7 +1312,7 @@ function vLancamentos(){
     <tbody>${L.slice(0, LIM).map(r => `<tr onclick="abrirRegistro('${esc(r.id)}','${esc(r.data.slice(0,7))}')">
       <td data-l="Data">${dataBR(r.data)}</td><td data-l="Início">${esc(r.hi.slice(0,5))}</td><td data-l="Fim">${esc(r.hf.slice(0,5))}</td>
       <td class="n" data-l="Tempo">${fmtDur(dur(r.hi, r.hf)).slice(0,5)}</td>
-      <td class="cli" data-l="Cliente">${esc(r.cliente)}</td><td data-l="Movimento">${esc(r.mov)}</td><td data-l="Colaborador">${esc(r.colab)}</td><td data-l="NF/DI/PED">${esc(r.nf)}</td>
+      <td class="cli" data-l="Cliente">${esc(r.cliente)}${r.subcli ? ' <span class="dica">/ ' + esc(r.subcli) + '</span>' : ''}</td><td data-l="Movimento">${esc(r.mov)}</td><td data-l="Colaborador">${esc(r.colab)}</td><td data-l="NF/DI/PED">${esc(r.nf)}</td>
       <td class="n" data-l="SKU">${nf(r.sku)}</td><td class="n" data-l="Volumes">${nf(r.vol)}</td><td class="n" data-l="Unidades">${nf(r.un)}</td><td class="n" data-l="Pallets">${nf(r.pal)}</td>
       <td data-l="Divergência"><span class="tag ${r.div === 'SIM' ? 'bad' : 'ok'}">${r.div === 'SIM' ? 'Sim' : 'Não'}</span></td>
       <td data-l="Entrega">${r.stEnt === ST_EN ? `<span class="tag ok">${dataBR(r.entData).slice(0,5)} ${esc(r.entHora.slice(0,5))}</span>` : r.stEnt === ST_AG ? '<span class="tag ag">Aguardando</span>' : '-'}</td>
@@ -1277,9 +1323,9 @@ function vLancamentos(){
 function limparFiltros(){ S.f = { de:'', ate:'', cliente:'', mov:'', colab:'', ent:'', q:'' }; render(); }
 function exportarCSV(){
   const L = filtrados();
-  const cab = ['DATA','HORA INICIAL','HORA FINAL','TEMPO','CLIENTE','MOVIMENTO','COLABORADOR','NF/ DI/ PED','QTD DE SKU','QTD DE VOLUMES','QTD DE UNIDADES','QTD DE PALLETS','DIVERGENCIA','OBSERVAÇÕES','LANÇADO POR','STATUS ENTREGA','ENTREGUE POR','DATA ENTREGA','HORA ENTREGA','OBS ENTREGA'];
+  const cab = ['DATA','HORA INICIAL','HORA FINAL','TEMPO','CLIENTE','SUBCLIENTE','MOVIMENTO','COLABORADOR','NF/ DI/ PED','QTD DE SKU','QTD DE VOLUMES','QTD DE UNIDADES','QTD DE PALLETS','DIVERGENCIA','OBSERVAÇÕES','LANÇADO POR','STATUS ENTREGA','ENTREGUE POR','DATA ENTREGA','HORA ENTREGA','OBS ENTREGA'];
   const q = v => { const s = String(v == null ? '' : v); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; };
-  const linhas = L.map(r => [dataBR(r.data), r.hi, r.hf, fmtDur(dur(r.hi, r.hf)), r.cliente, r.mov, r.colab, r.nf, r.sku, r.vol, r.un, r.pal, r.div, r.obs, r.email, r.stEnt, r.entPor, dataBR(r.entData), r.entHora, r.entObs].map(q).join(';'));
+  const linhas = L.map(r => [dataBR(r.data), r.hi, r.hf, fmtDur(dur(r.hi, r.hf)), r.cliente, r.subcli, r.mov, r.colab, r.nf, r.sku, r.vol, r.un, r.pal, r.div, r.obs, r.email, r.stEnt, r.entPor, dataBR(r.entData), r.entHora, r.entObs].map(q).join(';'));
   baixar(new Blob(['\ufeff' + [cab.join(';')].concat(linhas).join('\r\n')], { type:'text/csv;charset=utf-8' }), `movimentacao_estoque_${S.f.de || 'inicio'}_a_${S.f.ate || 'hoje'}.csv`);
 }
 function baixar(blob, nome){
@@ -1340,13 +1386,210 @@ function vPainel(){
   </div>` : `<div class="vazio" style="margin-top:14px">Sem lançamentos neste mês.</div><div class="grade2">${ocu}</div>`}`;
 }
 
+/* ══════════ ACERTOS ══════════ */
+/* Ocupação em Cadastros > Ocupação = saldo de FECHAMENTO do mês. O acerto começa com o fechamento do mês anterior. */
+const MESES_NOME = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const mesSo = m => MESES_NOME[+String(m).slice(5,7) - 1] || '';
+const mesNome = m => mesSo(m) + ' ' + String(m).slice(0,4);
+const mesAntDe = m => { const [a, b] = m.split('-').map(Number); const d = new Date(a, b - 2, 1); return d.getFullYear() + '-' + p2(d.getMonth() + 1); };
+const ultimoDia = m => { const [a, b] = m.split('-').map(Number); return m + '-' + p2(new Date(a, b, 0).getDate()); };
+const diaAntes = iso => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() - 1); return isoDe(d); };
+function mesesEntre(m1, m2){ const out = []; let m = m1; for(let i = 0; i < 60 && m <= m2; i++){ out.push(m); const [a, b] = m.split('-').map(Number); const d = new Date(a, b, 1); m = d.getFullYear() + '-' + p2(d.getMonth() + 1); } return out; }
+const ocupEntrada = (cliente, m) => Object.values(D.ocupacao[m] || {}).find(x => x && up(x.cliente) === up(cliente));
+function subDeOcup(cliente, sub){
+  const out = {}, nomes = subsDe(cliente, true);
+  Object.entries(sub || {}).forEach(([k, v]) => { const n = nomes.find(x => chave(x) === k) || k; out[n] = (out[n] || 0) + (+v || 0); });
+  return out;
+}
+const somaSub = (a, b) => { const o = Object.assign({}, a); Object.entries(b).forEach(([k, v]) => { o[k] = (o[k] || 0) + v; }); return o; };
+function movPal(L){ let t = 0; const sub = {}; L.forEach(r => { t += r.pal; const k = r.subcli || ''; sub[k] = (sub[k] || 0) + r.pal; }); return { t, sub }; }
+const regsCliente = (cliente, de, ate) => registros().filter(r => up(r.cliente) === up(cliente) && r.data >= de && r.data <= ate)
+  .sort((a, b) => (a.data + a.hi + String(a.ts || '')).localeCompare(b.data + b.hi + String(b.ts || '')));
+/* saldo no início do mês m: fechamento cadastrado do mês anterior; sem ele, recalcula pelos lançamentos (até 6 meses para trás) */
+function abertura(cliente, m, nivel = 0){
+  const ant = mesAntDe(m);
+  garantirOcup(ant);
+  if(!(ant in D.ocupacao)) return { carregando:true };
+  const e = ocupEntrada(cliente, ant);
+  if(e && e.pallets != null && e.pallets !== '') return { total:+e.pallets || 0, sub:subDeOcup(cliente, e.sub), fonte:'ocup', ref:ant };
+  const primeiro = D.meses[0] || m;
+  if(nivel >= 6 || ant < primeiro) return { total:0, sub:{}, fonte:'nenhum', ref:ant };
+  const a = abertura(cliente, ant, nivel + 1);
+  if(a.carregando) return a;
+  garantirMeses([ant]);
+  if(!D.carregado[ant]) return { carregando:true };
+  const mv = movPal(regsDoMes(ant).filter(r => up(r.cliente) === up(cliente)));
+  return { total:a.total + mv.t, sub:somaSub(a.sub, mv.sub), fonte:'calc', ref:a.ref, base:a.fonte };
+}
+
+function calcAcerto(){
+  const A = S.a;
+  const clientes = ativos('clientes');
+  if(!A.cliente) A.cliente = clientes.find(c => subsDe(c).length) || clientes[0] || '';
+  let de, ate;
+  if(A.modo === 'mes'){ de = A.mes + '-01'; ate = ultimoDia(A.mes); }
+  else { de = A.de || hojeISO().slice(0,8) + '01'; ate = A.ate || hojeISO(); if(de > ate) [de, ate] = [ate, de]; }
+  const mesIni = de.slice(0,7);
+  const meses = mesesEntre(mesIni, ate.slice(0,7));
+  garantirMeses(meses);
+  const out = { de, ate, mesIni, cliente:A.cliente, carregando: meses.some(m => !D.carregado[m]) };
+  if(!A.cliente) return out;
+  const ab = abertura(A.cliente, mesIni);
+  if(ab.carregando || out.carregando){ out.carregando = true; return out; }
+  let ini = { total:ab.total, sub:ab.sub };
+  if(de > mesIni + '-01'){ const pre = movPal(regsCliente(A.cliente, mesIni + '-01', diaAntes(de))); ini = { total:ini.total + pre.t, sub:somaSub(ini.sub, pre.sub) }; }
+  const L = regsCliente(A.cliente, de, ate);
+  let saldo = ini.total;
+  const linhas = L.map(r => { saldo += r.pal; return { r, saldo }; });
+  const mv = movPal(L);
+  const fim = ini.total + mv.t;
+  const subFim = somaSub(ini.sub, mv.sub);
+  const nomes = subsDe(A.cliente, true);
+  const ativosSub = subsDe(A.cliente);
+  const subRows = [];
+  const vistos = new Set();
+  ativosSub.concat(nomes, Object.keys(subFim)).forEach(n => {
+    if(!n || vistos.has(n)) return; vistos.add(n);
+    const v = Math.round((subFim[n] || 0) * 100) / 100;
+    if(ativosSub.includes(n) || v) subRows.push({ n, v });
+  });
+  const semSub = Math.round((fim - subRows.reduce((s, x) => s + x.v, 0)) * 100) / 100;
+  const tempos = L.map(r => dur(r.hi, r.hf)).filter(x => x != null);
+  return Object.assign(out, { ab, ini, L, linhas, fim, entr:L.reduce((s, r) => s + (r.pal > 0 ? r.pal : 0), 0), said:L.reduce((s, r) => s + (r.pal < 0 ? -r.pal : 0), 0),
+    temSub: nomes.length > 0 || L.some(r => r.subcli), subRows, semSub, pecas:L.reduce((s, r) => s + r.un, 0), tempo:tempos.reduce((a, b) => a + b, 0) });
+}
+
+function vAcertos(){
+  const A = S.a, X = calcAcerto();
+  const meses = Array.from(new Set(D.meses.concat([mesAtual(), A.mes]))).sort().reverse();
+  const ctrl = `
+  <div class="ac-ctrl">
+    <label class="f">Cliente<select class="in" onchange="S.a.cliente=this.value;render()">${optList(ativos('clientes'), A.cliente, 'Selecione')}</select></label>
+    <div class="f">Período de corte<div class="seg" style="margin-top:4px">
+      <button aria-pressed="${A.modo === 'mes'}" onclick="S.a.modo='mes';render()">Mensal</button>
+      <button aria-pressed="${A.modo === 'per'}" onclick="S.a.modo='per';render()">Por período</button></div></div>
+    ${A.modo === 'mes'
+      ? `<label class="f">Mês<select class="in" onchange="S.a.mes=this.value;render()">${meses.map(m => `<option value="${m}" ${m === A.mes ? 'selected' : ''}>${mesNome(m)}</option>`).join('')}</select></label>`
+      : `<label class="f">De<input class="in" type="date" value="${A.de}" onchange="S.a.de=this.value;render()"></label>
+         <label class="f">Até<input class="in" type="date" value="${A.ate}" onchange="S.a.ate=this.value;render()"></label>`}
+  </div>`;
+  if(!A.cliente) return ctrl + `<div class="vazio" style="margin-top:14px">Selecione um cliente para ver o acerto.</div>`;
+  if(X.carregando) return ctrl + `<div class="vazio" style="margin-top:14px">Carregando lançamentos e saldos do banco…</div>`;
+  const nInt = v => { const n = Math.round(v * 100) / 100; return `<span class="${n < 0 ? 'neg' : ''}">${nf(n)}</span>`; };
+  const quando = A.modo === 'mes' ? 'o mês de ' + mesSo(A.mes).toUpperCase() : 'o período em ' + dataBR(X.de);
+  const fonte = X.ab.fonte === 'ocup' ? `Saldo inicial = fechamento de ${mesNome(X.ab.ref)} cadastrado em Ocupação`
+    : X.ab.fonte === 'calc' ? (X.ab.base === 'ocup' ? `Saldo inicial calculado a partir do fechamento de ${mesNome(X.ab.ref)} somando os lançamentos dos meses seguintes`
+                                                    : `Saldo inicial calculado somando todos os lançamentos anteriores (não há fechamento cadastrado)`)
+    : `Sem fechamento cadastrado para ${mesNome(X.ab.ref)}: saldo inicial considerado 0`;
+  const fonteExtra = X.de > X.mesIni + '-01' ? `, mais os lançamentos de ${dataBR(X.mesIni + '-01')} a ${dataBR(diaAntes(X.de))}` : '';
+  const cadFim = A.modo === 'mes' ? ocupEntrada(A.cliente, A.mes) : null;
+  const difFim = cadFim && cadFim.pallets != null && cadFim.pallets !== '' && +cadFim.pallets !== X.fim;
+  const cols = X.temSub ? 11 : 10;
+  const tabela = X.L.length ? `
+    <div class="ac-wrap"><table class="ac">
+      <thead><tr><th>DATA MOV</th><th>MÊS</th><th>TIPO MOV</th>${X.temSub ? '<th>SUBCLIENTE</th>' : ''}<th>QTD<br>ENTR PLT</th><th>QTD<br>SAÍDA PLT</th><th>TOTAL DE<br>PALLETS</th><th>TEMPO DE<br>CONFERÊNCIA</th><th>NF / PEDIDO</th><th>QTD<br>PEÇAS</th><th>OBS</th></tr></thead>
+      <tbody>${X.linhas.map(({ r, saldo }) => `<tr onclick="abrirRegistro('${esc(r.id)}','${esc(r.data.slice(0,7))}')">
+        <td>${dataBR(r.data)}</td><td>${mesSo(r.data)}</td><td class="l">${esc(r.mov)}</td>${X.temSub ? `<td class="l">${esc(r.subcli || '-')}</td>` : ''}
+        <td>${r.pal > 0 ? nf(r.pal) : ''}</td><td>${r.pal < 0 ? nf(-r.pal) : ''}</td>
+        <td class="tot ${saldo < 0 ? 'neg' : ''}">${nf(Math.round(saldo * 100) / 100)}</td>
+        <td>${fmtDur(dur(r.hi, r.hf))}</td><td>${esc(r.nf)}</td><td>${nf(r.un)}</td><td class="l">${esc(r.obs)}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td colspan="${X.temSub ? 4 : 3}"></td><td>${nf(X.entr)}</td><td>${nf(X.said)}</td><td colspan="${cols - (X.temSub ? 6 : 5)}"></td></tr></tfoot>
+    </table></div>`
+    : `<div class="vazio" style="margin:14px 16px">Nenhum lançamento de ${esc(A.cliente)} neste período.</div>`;
+  const quadroSub = X.temSub ? `<table class="ac-sub"><tbody>
+      ${X.subRows.map(x => `<tr><td>${esc(x.n)}</td><td class="${x.v < 0 ? 'neg' : ''}">${nf(x.v)}</td></tr>`).join('')}
+      ${X.semSub ? `<tr><td style="background:#F4D6C8">SEM SUBCLIENTE</td><td class="${X.semSub < 0 ? 'neg' : ''}">${nf(X.semSub)}</td></tr>` : ''}
+      <tr class="sep"><td></td><td></td></tr>
+      <tr><td>TOTAL:</td><td class="${X.fim < 0 ? 'neg' : ''}">${nf(Math.round(X.fim * 100) / 100)}</td></tr></tbody></table>` : '';
+  return ctrl + `
+  <div class="ac-acoes">
+    ${isAdmin() ? `<button class="btn btn-sec" onclick="abrirSaldoIni()">Ajustar saldo inicial</button>` : ''}
+    ${isAdmin() && A.modo === 'mes' ? `<button class="btn btn-sec" onclick="gravarFechamento()">Gravar fechamento de ${mesSo(A.mes)} (${nf(X.fim)})</button>` : ''}
+    <button class="btn btn-sec" onclick="exportarAcerto()">Exportar para Excel</button>
+    <button class="btn btn-nav" onclick="window.print()">Imprimir / PDF</button>
+  </div>
+  <div class="ac-folha">
+    <div class="ac-cab">INICIAMOS ${esc(quando.toUpperCase())} COM <b>${nf(Math.round(X.ini.total * 100) / 100)}</b> POSIÇÕES OCUPADAS.<small>${esc(fonte + fonteExtra)}.</small></div>
+    <div class="ac-cli">${esc(A.cliente)} | ${dataBR(X.de)} a ${dataBR(X.ate)}</div>
+    ${difFim ? `<div class="ac-alerta">O fechamento de ${mesNome(A.mes)} cadastrado em Ocupação é ${nf(+cadFim.pallets)}, mas os lançamentos resultam em ${nf(X.fim)}. ${isAdmin() ? 'Confira e use "Gravar fechamento" para atualizar.' : ''}</div>` : ''}
+    ${X.ini.total < 0 || X.fim < 0 ? `<div class="ac-alerta">Saldo negativo: confira o saldo inicial ou algum lançamento com pallets de saída a mais.</div>` : ''}
+    ${tabela}
+    <div class="ac-pe">
+      ${quadroSub}
+      <div class="ac-res">
+        <span>Saldo inicial</span><b>${nf(Math.round(X.ini.total * 100) / 100)}</b>
+        <span>Entradas de pallets</span><b>+${nf(X.entr)}</b>
+        <span>Saídas de pallets</span><b>−${nf(X.said)}</b>
+        <span>Saldo final (posições)</span><b>${nInt(X.fim)}</b>
+        <span>Operações</span><b>${nf(X.L.length)}</b>
+        <span>Peças movimentadas</span><b>${nf(X.pecas)}</b>
+        <span>Tempo total de conferência</span><b>${fmtDur(X.tempo)}</b>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* saldo inicial = fechamento do mês anterior ao início do acerto, por subcliente */
+function abrirSaldoIni(){
+  const X = calcAcerto(); if(X.carregando || !X.cliente) return;
+  const ref = mesAntDe(X.mesIni), cli = X.cliente;
+  const e = ocupEntrada(cli, ref);
+  const sub = subDeOcup(cli, e && e.sub);
+  const nomes = subsDe(cli);
+  abrirModal('Saldo inicial de ' + cli, `
+    <p class="nota" style="margin-top:0">Informe as posições ocupadas no fechamento de <b>${mesNome(ref)}</b>. Esse número é o ponto de partida do acerto de ${mesNome(X.mesIni)} e também aparece em Cadastros, Ocupação.</p>
+    <form id="fIni" class="form" ${CAMPO} onsubmit="return false">
+      <label class="f full"><span>Total de posições<em>*</em></span><input class="in" type="number" step="1" name="px-ini-tot" value="${e && e.pallets != null ? e.pallets : X.ab.total}" required></label>
+      ${nomes.map((n, i) => `<label class="f">${esc(n)}<input class="in" type="number" step="1" name="px-ini-${i}" data-sub="${esc(n)}" value="${sub[n] == null ? '' : sub[n]}"></label>`).join('')}
+    </form>
+    ${nomes.length ? '<p class="nota">A diferença entre o total e a soma dos subclientes aparece como "Sem subcliente".</p>' : ''}<div id="fErro"></div>`,
+    `<button class="btn btn-sec" onclick="fecharModal()">Cancelar</button><button class="btn btn-pri" id="bOk">Salvar saldo inicial</button>`);
+  const f = $('#fIni');
+  f.addEventListener('input', e2 => { if(e2.target.dataset.sub == null) return; const t = Array.from(f.querySelectorAll('[data-sub]')).reduce((s, el) => s + (Number(el.value) || 0), 0); if(t) f['px-ini-tot'].value = t; });
+  $('#bOk').onclick = () => {
+    if(!f.reportValidity()) return;
+    const s2 = {}; f.querySelectorAll('[data-sub]').forEach(el => { if(el.value.trim() !== '') s2[chave(el.dataset.sub)] = Number(el.value) || 0; });
+    enqueue({ t:'upd', p:'ocupacao/' + ref + '/' + chave(cli), v:{ cliente:cli, pallets:Number(f['px-ini-tot'].value) || 0, sub:Object.keys(s2).length ? s2 : null } });
+    fecharModal(); toast('Saldo inicial salvo.');
+  };
+}
+function gravarFechamento(){
+  const X = calcAcerto(); if(X.carregando || !X.cliente || S.a.modo !== 'mes') return;
+  const m = S.a.mes, e = ocupEntrada(X.cliente, m);
+  const msg = 'Gravar ' + nf(X.fim) + ' posições como fechamento de ' + mesNome(m) + ' para ' + X.cliente + '?'
+    + (e && e.pallets != null ? '\nO valor cadastrado hoje é ' + nf(+e.pallets) + '.' : '')
+    + (m >= mesAtual() ? '\nAtenção: o mês ainda não terminou.' : '')
+    + '\nEsse fechamento vira o saldo inicial de ' + mesNome(mesesEntre(m, '9999-12')[1] || m) + '.';
+  if(!confirm(msg)) return;
+  const sub = {}; X.subRows.forEach(x => { sub[chave(x.n)] = x.v; });
+  enqueue({ t:'upd', p:'ocupacao/' + m + '/' + chave(X.cliente), v:{ cliente:X.cliente, pallets:X.fim, sub:Object.keys(sub).length ? sub : null } });
+  toast('Fechamento de ' + mesNome(m) + ' gravado.');
+}
+function exportarAcerto(){
+  const X = calcAcerto(); if(X.carregando || !X.cliente) return;
+  const q = v => { const s2 = String(v == null ? '' : v); return /[;"\n]/.test(s2) ? '"' + s2.replace(/"/g,'""') + '"' : s2; };
+  const L = [];
+  L.push(['ACERTO ' + X.cliente, dataBR(X.de) + ' a ' + dataBR(X.ate)]);
+  L.push(['SALDO INICIAL', X.ini.total]);
+  L.push([]);
+  L.push(['DATA MOV','MÊS','TIPO MOV'].concat(X.temSub ? ['SUBCLIENTE'] : [], ['QTD ENTR PLT','QTD SAÍDA PLT','TOTAL DE PALLETS','TEMPO DE CONFERENCIA','NF / PEDIDO','QTD PEÇAS','OBS']));
+  X.linhas.forEach(({ r, saldo }) => L.push([dataBR(r.data), mesSo(r.data), r.mov].concat(X.temSub ? [r.subcli] : [], [r.pal > 0 ? r.pal : '', r.pal < 0 ? -r.pal : '', saldo, fmtDur(dur(r.hi, r.hf)), r.nf, r.un, r.obs])));
+  L.push(['', '', ''].concat(X.temSub ? [''] : [], [X.entr, X.said]));
+  L.push([]);
+  if(X.temSub){ X.subRows.forEach(x => L.push([x.n, x.v])); if(X.semSub) L.push(['SEM SUBCLIENTE', X.semSub]); }
+  L.push(['TOTAL', X.fim]);
+  const nome = 'acerto_' + X.cliente.replace(/[^A-Z0-9]+/gi, '_') + '_' + X.de + '_a_' + X.ate + '.csv';
+  baixar(new Blob(['﻿' + L.map(l => l.map(q).join(';')).join('\r\n')], { type:'text/csv;charset=utf-8' }), nome);
+}
+
 /* ══════════ CADASTROS ══════════ */
-const CAD_NOMES = { clientes:'Clientes', colaboradores:'Colaboradores', movimentos:'Movimentos', observacoes:'Observações', ocupacao:'Ocupação', usuarios:'Usuários' };
+const CAD_NOMES = { clientes:'Clientes', subclientes:'Subclientes', colaboradores:'Colaboradores', movimentos:'Movimentos', observacoes:'Observações', ocupacao:'Ocupação', usuarios:'Usuários' };
 function vCadastros(){
   if(!isAdmin()) return '<div class="vazio">Acesso restrito a administradores.</div>';
   const seg = `<div class="seg">${Object.entries(CAD_NOMES).map(([k, v]) => `<button aria-pressed="${S.cad === k}" onclick="S.cad='${k}';render()">${v}</button>`).join('')}</div>`;
   if(S.cad === 'usuarios') return seg + vUsuarios();
   if(S.cad === 'ocupacao') return seg + vOcupacao();
+  if(S.cad === 'subclientes') return seg + vSubclientes();
   const lista = cadLista(S.cad).sort((a,b) => (b.ativo - a.ativo) || a.nome.localeCompare(b.nome));
   return seg + `
   <form class="add" ${CAMPO} onsubmit="event.preventDefault();cadAdd(this)">
@@ -1385,6 +1628,48 @@ function cadAlternar(key){
   try{ cadGravar(S.cad, key, x.nome, !x.ativo); toast(x.ativo ? 'Item desativado.' : 'Item ativado.'); }catch(e){ toast(e.message, true); }
 }
 
+function vSubclientes(){
+  const lista = subLista();
+  const clientes = Array.from(new Set(ativos('clientes').concat(lista.map(x => x.cliente)))).sort();
+  const grupos = clientes.map(c => ({ c, l: lista.filter(x => up(x.cliente) === up(c)).sort((a,b) => (b.ativo - a.ativo) || a.nome.localeCompare(b.nome)) })).filter(g => g.l.length);
+  return `
+  <form class="add" ${CAMPO} onsubmit="event.preventDefault();subAdd(this)">
+    <select class="in" name="px-sub-cli" required style="max-width:240px">${optList(ativos('clientes'), S.subCli || '', 'Cliente')}</select>
+    <input class="in" name="px-sub-nome" ${CAMPO} placeholder="Nome do subcliente" required style="text-transform:uppercase">
+    <button class="btn btn-pri" type="submit">Adicionar</button>
+  </form>
+  <p class="nota">Subclientes são os clientes dos nossos clientes (ex.: RIOTORO, RUKUS). Quando um cliente tem subclientes, o lançamento passa a pedir o subcliente, e o Acerto mostra a ocupação de paletes de cada um.</p>
+  ${grupos.length ? grupos.map(g => `<div class="sub-grupo"><h4>${esc(g.c)} <span class="dica">${g.l.filter(x => x.ativo).length} ativo(s)</span></h4><div class="cad">${g.l.map(x => `
+    <div class="cad-l ${x.ativo ? '' : 'inativo'}">
+      <span class="nm">${esc(x.nome)}</span>
+      <span class="tag ${x.ativo ? 'ok' : 'off'}">${x.ativo ? 'Ativo' : 'Inativo'}</span>
+      <button class="mini" data-k="${esc(x.key)}" onclick="subRenomear(this.dataset.k)">Renomear</button>
+      <button class="mini" data-k="${esc(x.key)}" onclick="subAlternar(this.dataset.k)">${x.ativo ? 'Desativar' : 'Ativar'}</button>
+    </div>`).join('')}</div></div>`).join('')
+  : `<div class="vazio">${D.cadOk ? 'Nenhum subcliente cadastrado ainda.' : 'Carregando…'}</div>`}`;
+}
+function subGravar(key, nome, cliente, ativo){
+  nome = up(nome); cliente = up(cliente);
+  if(!cliente) throw new Error('Selecione o cliente.');
+  if(!nome) throw new Error('Informe o nome do subcliente.');
+  if(subLista().find(x => up(x.nome) === nome && up(x.cliente) === cliente && x.key !== key)) throw new Error('"' + nome + '" já está cadastrado para ' + cliente + '.');
+  enqueue({ t:'set', p:'cad/subclientes/' + (key || chave(cliente + ' ' + nome)), v:{ nome, cliente, ativo } });
+}
+function subAdd(form){
+  const c = form['px-sub-cli'].value, n = form['px-sub-nome'].value;
+  try{ subGravar(null, n, c, true); S.subCli = c; toast(`"${up(n)}" adicionado em ${c}.`); form['px-sub-nome'].value = ''; form['px-sub-nome'].focus(); }catch(e){ toast(e.message, true); }
+}
+function subRenomear(key){
+  const x = subLista().find(i => i.key === key); if(!x) return;
+  const novo = prompt('Novo nome para "' + x.nome + '":', x.nome); if(!novo || up(novo) === x.nome) return;
+  if(!confirm('Renomear altera só o cadastro. Os lançamentos antigos continuam com "' + x.nome + '". Continuar?')) return;
+  try{ subGravar(key, novo, x.cliente, x.ativo); toast('Nome atualizado.'); }catch(e){ toast(e.message, true); }
+}
+function subAlternar(key){
+  const x = subLista().find(i => i.key === key); if(!x) return;
+  try{ subGravar(key, x.nome, x.cliente, !x.ativo); toast(x.ativo ? 'Subcliente desativado.' : 'Subcliente ativado.'); }catch(e){ toast(e.message, true); }
+}
+
 function vOcupacao(){
   garantirOcup(S.ocMes);
   const O = D.ocupacao[S.ocMes] || {};
@@ -1395,7 +1680,7 @@ function vOcupacao(){
     <label class="f" style="max-width:220px">Mês<input class="in" type="month" name="px-oc-mes" value="${S.ocMes}" onchange="S.ocMes=this.value||mesAtual();render()"></label>
     <button class="btn btn-pri" onclick="salvarOcupacao()">Salvar ocupação</button>
   </div>
-  <p class="nota">Pallets em estoque por cliente no mês (aparece no Painel). Deixe em branco o cliente sem estoque.</p>
+  <p class="nota">Pallets em estoque por cliente no fechamento do mês (aparece no Painel e serve de saldo inicial do mês seguinte em Acertos). Deixe em branco o cliente sem estoque.</p>
   <form id="fOcup" class="cad" ${CAMPO} onsubmit="return false">${clientes.map((c, i) => `
     <div class="cad-l"><span class="nm">${esc(c)}</span>
       <input class="in" style="max-width:120px" type="number" inputmode="numeric" min="0" step="1" name="px-oc-${i}" data-cli="${esc(c)}" value="${porCli[c] == null ? '' : porCli[c]}"></div>`).join('')}
@@ -1405,7 +1690,9 @@ function salvarOcupacao(){
   const ops = [];
   document.querySelectorAll('#fOcup input[data-cli]').forEach(el => {
     const c = el.dataset.cli, k = chave(c), v = el.value.trim();
-    ops.push(v === '' ? { t:'del', p:'ocupacao/' + S.ocMes + '/' + k } : { t:'set', p:'ocupacao/' + S.ocMes + '/' + k, v:{ cliente:c, pallets:Number(v) || 0 } });
+    const ex = Object.values(D.ocupacao[S.ocMes] || {}).find(x => up(x.cliente) === up(c));
+    if(v === '' && !ex) return;
+    ops.push(v === '' ? { t:'upd', p:'ocupacao/' + S.ocMes + '/' + k, v:{ pallets:null } } : { t:'upd', p:'ocupacao/' + S.ocMes + '/' + k, v:{ cliente:c, pallets:Number(v) || 0 } });
   });
   if(ops.length){ enqueue(...ops); toast('Ocupação salva.'); }
 }
@@ -1455,12 +1742,21 @@ function selectCad(name, tipo, valor, dis){
   if(valor && !lista.includes(valor)) lista.unshift(valor);
   return `<select class="in" name="${name}" required ${dis ? 'disabled' : ''}><option value="">Selecione</option>${lista.map(v => `<option ${v === valor ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select>`;
 }
+/* subclientes: clientes dos nossos clientes, usados para justificar a ocupação por palete */
+function subLista(){ return Object.entries(D.cad.subclientes || {}).map(([k, x]) => ({ key:k, nome:(x && x.nome) || k, cliente:(x && x.cliente) || '', ativo: !(x && x.ativo === false) })); }
+const subsDe = (cliente, todos) => subLista().filter(x => (todos || x.ativo) && up(x.cliente) === up(cliente)).map(x => x.nome).sort((a,b) => a.localeCompare(b));
+function campoSub(cliente, valor, dis){
+  const l = subsDe(cliente); if(valor && !l.includes(valor)) l.unshift(valor);
+  const vis = l.length > 0;
+  return `<label class="f wm ${vis ? '' : 'hidden'}" data-sub><span>Subcliente (ocupação)<em>*</em></span><select class="in" name="subcli" ${vis && !dis ? 'required' : ''} ${dis ? 'disabled' : ''}><option value="">Selecione</option>${l.map(v => `<option ${v === valor ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>`;
+}
 function camposInicio(r, dis){
   const d = dis ? 'disabled' : '';
   return `
     <label class="f"><span>Data<em>*</em></span><input class="in" type="date" name="data" value="${esc(r.data)}" required ${d}></label>
     <label class="f"><span>Hora inicial<em>*</em></span><input class="in" type="time" step="1" name="hi" value="${esc(r.hi)}" required ${d}></label>
     <label class="f wm"><span>Cliente<em>*</em></span>${selectCad('cliente','clientes',r.cliente,dis)}</label>
+    ${campoSub(r.cliente, r.subcli, dis)}
     <label class="f wm"><span>Movimento<em>*</em></span>${selectCad('mov','movimentos',r.mov,dis)}</label>
     <label class="f wm"><span>Colaborador<em>*</em></span>${selectCad('colab','colaboradores',r.colab,dis)}</label>
     <label class="f wm">NF / DI / PED<input class="in" name="nf" ${CAMPO} value="${esc(r.nf)}" placeholder="Ex.: NF 12228 ou PED 0387" ${d}></label>`;
@@ -1499,8 +1795,8 @@ function abrirForm(modo, id, rec){
     const a = D.andamento[id]; if(!a){ toast('Operação não encontrada. Talvez já tenha sido finalizada em outro aparelho.', true); return; }
     r = Object.assign({ id }, a, { hf:agora, sku:+a.pedSku || 0, vol:0, un:+a.pedUn || 0, pal:0, div:'NÃO', obs:obsPadrao(a.mov) });
     titulo = 'Finalizar operação';
-    corpo = `<div class="resumo-op"><div class="cli">${esc(a.cliente)}</div><div class="meta">${esc(a.mov)} | ${esc(a.colab)}${a.nf ? ' | ' + esc(a.nf) : ''}<br>Início ${dataBR(a.data)} às ${esc(a.hi)}</div></div>
-      <form id="fOp" class="form" ${CAMPO} onsubmit="return false"><input type="hidden" name="hi" value="${esc(a.hi)}"><input type="hidden" name="mov" value="${esc(a.mov)}">${camposFim(r)}</form>`;
+    corpo = `<div class="resumo-op"><div class="cli">${esc(a.cliente)}${a.subcli ? ' / ' + esc(a.subcli) : ''}</div><div class="meta">${esc(a.mov)} | ${esc(a.colab)}${a.nf ? ' | ' + esc(a.nf) : ''}<br>Início ${dataBR(a.data)} às ${esc(a.hi)}</div></div>
+      <form id="fOp" class="form" ${CAMPO} onsubmit="return false"><input type="hidden" name="hi" value="${esc(a.hi)}"><input type="hidden" name="mov" value="${esc(a.mov)}">${a.subcli ? '' : campoSub(a.cliente, '', false)}${camposFim(r)}</form>`;
     rodape = `<button class="btn btn-sec" onclick="fecharModal()">Voltar</button><button class="btn btn-nav" id="bOk">Finalizar e salvar</button>`;
   } else if(modo === 'novo'){
     r = { data:hoje, hi:'', hf:agora, sku:0, vol:0, un:0, pal:0, div:'NÃO', obs:'' };
@@ -1529,7 +1825,10 @@ function abrirForm(modo, id, rec){
     $('#obsDica').textContent = dv === 'SIM' ? '(obrigatório: descreva a divergência)' : '';
   };
   f.addEventListener('input', e => { if(e.target.name === 'hi' || e.target.name === 'hf') atualizaTempo(); });
-  f.addEventListener('change', e => { if(e.target.name === 'div' || e.target.name === 'mov') atualizaObs(); });
+  f.addEventListener('change', e => {
+    if(e.target.name === 'div' || e.target.name === 'mov') atualizaObs();
+    if(e.target.name === 'cliente'){ const w = f.querySelector('[data-sub]'); if(w) w.outerHTML = campoSub(e.target.value, '', false); }
+  });
   atualizaTempo(); if(modo !== 'ver') atualizaObs();
   const bOk = $('#bOk'); if(bOk) bOk.onclick = () => salvarForm(modo, id, r);
   const bDel = $('#bDel'); if(bDel) bDel.onclick = () => excluirReg(r);
@@ -1562,10 +1861,10 @@ function erroForm(msg){ $('#fErro').innerHTML = `<div class="erro">${esc(msg)}</
 
 /* ── gravações de lançamento ── */
 const pathReg = r => 'mov/' + r.data.slice(0,7) + '/' + r.id;
-const CAMPOS_REG = ['id','data','hi','hf','cliente','mov','colab','nf','sku','vol','un','pal','div','obs','stEnt','entPor','entData','entHora','entObs','ts','email','disp','upd'];
+const CAMPOS_REG = ['id','data','hi','hf','cliente','subcli','mov','colab','nf','sku','vol','un','pal','div','obs','stEnt','entPor','entData','entHora','entObs','ts','email','disp','upd'];
 function recLimpo(r){ const o = {}; CAMPOS_REG.forEach(k => { const v = r[k]; o[k] = (v === '' || v === undefined) ? null : v; }); return o; }
 function baseReg(reg){
-  return { data:reg.data, hi:reg.hi, hf:reg.hf, cliente:up(reg.cliente), mov:up(reg.mov), colab:up(reg.colab), nf:String(reg.nf || '').trim(),
+  return { data:reg.data, hi:reg.hi, hf:reg.hf, cliente:up(reg.cliente), subcli:up(reg.subcli || ''), mov:up(reg.mov), colab:up(reg.colab), nf:String(reg.nf || '').trim(),
     sku:+reg.sku || 0, vol:+reg.vol || 0, un:+reg.un || 0, pal:+reg.pal || 0, div:reg.div === 'SIM' ? 'SIM' : 'NÃO', obs:String(reg.obs || '').trim() };
 }
 function validarReg(r){
@@ -1603,7 +1902,7 @@ function salvarForm(modo, id, rOrig){
       if(dup) return erroForm(msgDuplicado(dup, reg.cliente));
     }
     if(modo === 'iniciar'){
-      const novo = { data:reg.data, hi:reg.hi, cliente:up(reg.cliente), mov:up(reg.mov), colab:up(reg.colab), nf:String(reg.nf || '').trim(), usuario:S.user.usuario, inicio:Date.now(), disp:DISP };
+      const novo = { data:reg.data, hi:reg.hi, cliente:up(reg.cliente), subcli:up(reg.subcli || '') || null, mov:up(reg.mov), colab:up(reg.colab), nf:String(reg.nf || '').trim(), usuario:S.user.usuario, inicio:Date.now(), disp:DISP };
       if(!novo.data || !novo.hi || !novo.cliente || !novo.mov || !novo.colab) return erroForm('Preencha todos os campos obrigatórios.');
       const aid = novoId(), ped = rOrig && rOrig.pedEmail;
       if(ped){ novo.pedEmail = ped; novo.pedSku = +rOrig.pedSku || 0; novo.pedUn = +rOrig.pedUn || 0; }
@@ -1615,7 +1914,7 @@ function salvarForm(modo, id, rOrig){
     }
     if(modo === 'finalizar'){
       const a = D.andamento[id]; if(!a) return erroForm('Esta operação não está mais em andamento (talvez finalizada em outro aparelho).');
-      const rec = novoRegistro(Object.assign({}, a, { hf:reg.hf, sku:reg.sku, vol:reg.vol, un:reg.un, pal:reg.pal, div:reg.div, obs:reg.obs }), id);
+      const rec = novoRegistro(Object.assign({}, a, { subcli:reg.subcli || a.subcli || '', hf:reg.hf, sku:reg.sku, vol:reg.vol, un:reg.un, pal:reg.pal, div:reg.div, obs:reg.obs }), id);
       enqueue(...opsGravarReg(rec), { t:'del', p:'andamento/' + id },
         ...(a.pedEmail && D.pedidos[a.pedEmail] ? [{ t:'upd', p:'pedidosEmail/' + a.pedEmail, v:{ status:'SEPARADO', regId:rec.id, sepMs:Date.now() } }] : []));
       fecharModal(); toast(rec.stEnt === ST_AG ? msgSep : 'Operação finalizada e salva.'); return;
@@ -1793,12 +2092,12 @@ const TAB = {
         ['colab','COLABORADOR','@'],['nf','NF/ DI/ PED','@'],['sku','QTD DE SKU','n'],['vol','QTD DE VOLUMES','n'],['un','QTD DE UNIDADES','n'],
         ['pal','QTD DE PALLETS','n'],['div','DIVERGENCIA','@'],['obs','OBSERVAÇÕES','@'],['stEnt','STATUS ENTREGA','@'],['entPor','ENTREGUE POR','@'],
         ['entData','DATA ENTREGA','d'],['entHora','HORA ENTREGA','@'],['entObs','OBS ENTREGA','@'],['ts','LANÇADO EM','t'],['email','LANÇADO POR','@'],
-        ['disp','DISPOSITIVO','@'],['upd','ALTERADO EM','t']],
+        ['disp','DISPOSITIVO','@'],['upd','ALTERADO EM','t'],['subcli','SUBCLIENTE','@']],
   ANDAMENTO: [['id','ID','@'],['data','DATA','d'],['hi','HORA INICIAL','@'],['cliente','CLIENTE','@'],['mov','MOVIMENTO','@'],['colab','COLABORADOR','@'],
-              ['nf','NF/ DI/ PED','@'],['usuario','USUÁRIO','@'],['inicio','INÍCIO','t'],['disp','DISPOSITIVO','@']],
-  CADASTROS: [['tipo','TIPO','@'],['key','CHAVE','@'],['nome','NOME','@'],['ativo','ATIVO','b']],
+              ['nf','NF/ DI/ PED','@'],['usuario','USUÁRIO','@'],['inicio','INÍCIO','t'],['disp','DISPOSITIVO','@'],['subcli','SUBCLIENTE','@']],
+  CADASTROS: [['tipo','TIPO','@'],['key','CHAVE','@'],['nome','NOME','@'],['ativo','ATIVO','b'],['cliente','CLIENTE (SUBCLIENTE)','@']],
   USUARIOS: [['login','USUÁRIO','@'],['nome','NOME','@'],['senha','SENHA','@'],['perfil','PERFIL','@'],['ativo','ATIVO','b']],
-  OCUPACAO: [['mes','MÊS','@'],['key','CHAVE','@'],['cliente','CLIENTE','@'],['pallets','PALLETS','n']]
+  OCUPACAO: [['mes','MÊS','@'],['key','CHAVE','@'],['cliente','CLIENTE','@'],['pallets','PALLETS','n'],['sub','SUBCLIENTES','@']]
 };
 function cabDe(spec){ const c = [], f = []; spec.forEach(([, h, t]) => {
   if(t === 'd' || t === 't'){ c.push(h + ' (MS)', h); f.push('ms', '@'); } else { c.push(h); f.push(t === 'n' ? 'n' : '@'); } }); return { cab:c, fmt:f }; }
@@ -1826,9 +2125,9 @@ function montarTabelas(all){
   const t = { MOV:[], ANDAMENTO:[], CADASTROS:[], USUARIOS:[], OCUPACAO:[] };
   Object.entries(all.mov || {}).forEach(([m, o]) => Object.entries(o || {}).forEach(([id, r]) => t.MOV.push(normReg(r, id))));
   Object.entries(all.andamento || {}).forEach(([id, a]) => t.ANDAMENTO.push(Object.assign({}, a, { id })));
-  Object.entries(all.cad || {}).forEach(([tipo, o]) => Object.entries(o || {}).forEach(([key, x]) => t.CADASTROS.push({ tipo, key, nome:x.nome, ativo:x.ativo !== false })));
+  Object.entries(all.cad || {}).forEach(([tipo, o]) => Object.entries(o || {}).forEach(([key, x]) => t.CADASTROS.push({ tipo, key, nome:x.nome, ativo:x.ativo !== false, cliente:x.cliente || '' })));
   Object.entries(all.usuarios || {}).forEach(([login, u]) => t.USUARIOS.push(Object.assign({}, u, { login })));
-  Object.entries(all.ocupacao || {}).forEach(([mes, o]) => Object.entries(o || {}).forEach(([key, x]) => t.OCUPACAO.push({ mes, key, cliente:x.cliente, pallets:x.pallets })));
+  Object.entries(all.ocupacao || {}).forEach(([mes, o]) => Object.entries(o || {}).forEach(([key, x]) => t.OCUPACAO.push({ mes, key, cliente:x.cliente, pallets:x.pallets, sub:x.sub ? JSON.stringify(x.sub) : '' })));
   const out = {};
   Object.keys(t).forEach(tp => { const c = cabDe(TAB[tp]); out[tp] = { cab:c.cab, fmt:c.fmt, linhas:t[tp].map(o => linhaDe(TAB[tp], o)) }; });
   return out;
@@ -1842,11 +2141,12 @@ function caminhosDe(tipo, o, mapa){
   } else if(tipo === 'ANDAMENTO'){
     if(!o.id) return; const a = Object.assign({}, o); delete a.id; Object.keys(a).forEach(k => { if(a[k] === '') a[k] = null; }); mapa['andamento/' + chave(o.id)] = limpa(a);
   } else if(tipo === 'CADASTROS'){
-    if(!o.tipo || !o.nome) return; mapa['cad/' + o.tipo + '/' + (o.key || chave(o.nome))] = { nome:o.nome, ativo:o.ativo !== false };
+    if(!o.tipo || !o.nome) return; mapa['cad/' + o.tipo + '/' + (o.key || chave(o.nome))] = Object.assign({ nome:o.nome, ativo:o.ativo !== false }, o.cliente ? { cliente:o.cliente } : {});
   } else if(tipo === 'USUARIOS'){
     if(!o.login) return; mapa['usuarios/' + chave(up(o.login))] = { nome:o.nome || o.login, senha:String(o.senha || ''), perfil:o.perfil === 'ADMIN' ? 'ADMIN' : 'OPERADOR', ativo:o.ativo !== false };
   } else if(tipo === 'OCUPACAO'){
-    if(!o.mes || !o.cliente) return; mapa['ocupacao/' + o.mes + '/' + (o.key || chave(o.cliente))] = { cliente:o.cliente, pallets:Number(o.pallets) || 0 };
+    if(!o.mes || !o.cliente) return; let sub = null; try{ sub = o.sub ? JSON.parse(o.sub) : null; }catch(e){ sub = null; }
+    mapa['ocupacao/' + o.mes + '/' + (o.key || chave(o.cliente))] = Object.assign({ cliente:o.cliente, pallets:Number(o.pallets) || 0 }, sub ? { sub } : {});
   }
 }
 /* grava direto (sem fila) em lotes de 500 caminhos */
