@@ -425,6 +425,21 @@ table.ac-sub td.neg{color:var(--bad)}
 .ac-res b{text-align:right;font-variant-numeric:tabular-nums}
 .ac-alerta{margin:10px 16px 0;padding:8px 12px;border-radius:8px;background:var(--orange-3);color:#7A2E06;font-size:13px}
 .sub-grupo{margin-bottom:16px}
+table.ac td.frac{background:#FFE9B3!important;font-weight:700}
+.fr{border-top:3px solid #C99A06;padding:14px 16px 18px}
+.fr h3{font-family:var(--disp);font-weight:700;font-size:20px;color:var(--navy);margin:0 0 10px}
+.fr-num{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
+.fr-num>div{background:#F7F9FC;border-radius:10px;padding:10px 12px}
+.fr-num b{display:block;font-family:var(--disp);font-size:30px;line-height:1.05;color:var(--navy);font-variant-numeric:tabular-nums}
+.fr-num span{font-size:12px;color:var(--muted)}
+.fr-num .dest{background:var(--navy)}.fr-num .dest b{color:#fff}.fr-num .dest span{color:#B8C6DC}
+.fr-prog{display:grid;gap:6px;margin-bottom:10px}
+.fr-bar{height:16px;background:#E7EBF1;border-radius:8px;overflow:hidden}
+.fr-bar i{display:block;height:100%;background:linear-gradient(90deg,#C99A06,var(--orange))}
+.fr-tx{font-size:14px;color:var(--ink)}
+.fr-cob{font-size:14px;margin:0 0 10px}
+table.fr-man{margin:4px 0 10px;max-width:760px}
+.fr-pn .bar .tr .fl{background:#C99A06}
 .sub-grupo h4{font-family:var(--disp);font-size:18px;color:var(--navy);margin:0 0 6px}
 @media print{
   @page{size:A4 landscape;margin:10mm}
@@ -445,7 +460,7 @@ table.ac-sub td.neg{color:var(--bad)}
 /* ═══════════════════════════════════════════════════════════
    PORTOEX · Controle de Estoque — Firebase Realtime Database
    ═══════════════════════════════════════════════════════════ */
-const VERSAO = 'v2026.11.12-a';
+const VERSAO = 'v2026.11.12-b';
 const RAIZ = 'estoque';                      // nó raiz deste app no banco
 const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyC7z_sLiojkDBmOFK4pjSCqFACzArfZDts',
@@ -521,11 +536,11 @@ const S = {
   a:{ cliente:'', modo:'mes', mes: mesAtual(), de: hojeISO().slice(0,8)+'01', ate: hojeISO() }
 };
 const D = { mov:{}, carregado:{}, meses:[], andamento:{}, andOk:false, pendentes:{}, pendOk:false,
-            cad:{}, cadOk:false, usuarios:{}, usuOk:false, ocupacao:{}, meta:{}, pedidos:{}, pedOk:false };
+            cad:{}, cadOk:false, usuarios:{}, usuOk:false, ocupacao:{}, frac:{}, meta:{}, pedidos:{}, pedOk:false };
 
 /* ═══════════ FIREBASE ═══════════ */
 let root = null, conectado = false, authOk = false, fbErro = '', ultimoErro = '', gravando = false;
-const emVoo = new Set(), ouvindoMes = {}, ouvindoOcup = {}, mesesPedidos = new Set();
+const emVoo = new Set(), ouvindoMes = {}, ouvindoOcup = {}, ouvindoFrac = {}, mesesPedidos = new Set();
 
 function cfgFirebase(){ const c = store.get(K.fb, null); return (c && c.databaseURL) ? c : FIREBASE_CONFIG; }
 function iniciarFirebase(){
@@ -553,6 +568,7 @@ function ouvir(){
   root.child('pedidosEmail').on('value', s => { D.pedidos = s.val() || {}; D.pedOk = true; processarRecebidos(); agendar(); }, erroLeitura);
   garantirMeses([mesAtual(), mesAnterior(), ...mesesPedidos]);
   Object.keys(ouvindoOcup).forEach(m => { delete ouvindoOcup[m]; garantirOcup(m); });
+  Object.keys(ouvindoFrac).forEach(m => { delete ouvindoFrac[m]; garantirFrac(m); });
 }
 /* meses carregados para conferir NF / DI / PED repetido: últimos 12 meses */
 function mesesConferencia(){ const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 12); const lim = isoDe(d).slice(0,7); return D.meses.filter(m => m >= lim); }
@@ -589,6 +605,17 @@ function garantirOcup(m){
   if(!root || !authOk) return;
   root.child('ocupacao/' + m).on('value', s => { D.ocupacao[m] = s.val() || {}; agendar(); }, erroLeitura);
 }
+
+/* volumes acumulados lançados à mão (fracionados que não formaram palete), particionados por mês */
+function garantirFrac(m){
+  if(!m || ouvindoFrac[m]) return;
+  ouvindoFrac[m] = true;
+  if(!root || !authOk) return;
+  root.child('frac/' + m).on('value', s => { D.frac[m] = s.val() || {}; agendar(); }, erroLeitura);
+}
+const fracLista = m => Object.entries(D.frac[m] || {}).map(([id, x]) => Object.assign({ id, mes:m }, x));
+/* volumes mínimos para formar 1 palete, por cliente (Cadastros > Volumes por palete) */
+function volPalDe(cli){ const x = (D.cad.volpal || {})[chave(up(cli))]; return x && +x.vol > 0 ? { vol:+x.vol, todos:x.tipos === 'TODOS' } : null; }
 
 function normReg(r, id){
   r = r || {};
@@ -1353,7 +1380,19 @@ function vPainel(){
   const O = D.ocupacao[p.mes];
   const LO = O ? Object.values(O).map(x => ({ k:x.cliente, v:+x.pallets || 0 })).filter(x => !p.cliente || x.k === p.cliente).sort((a,b) => b.v - a.v) : [];
   const totO = LO.reduce((s,x) => s + x.v, 0);
-  const ocu = `<div class="bloco"><h3>Pallets em estoque no mês (${nf(totO)})</h3>${LO.length ? barras(LO, x => x.v, x => nf(x.v), 'lar') : `<p class="nota">Ocupação deste mês ainda não lançada.${isAdmin() ? ' Lance em Cadastros, Ocupação.' : ''}</p>`}</div>`;
+  garantirFrac(p.mes);
+  const cfgs = Object.values(D.cad.volpal || {}).filter(x => x && +x.vol > 0 && (!p.cliente || up(x.nome) === up(p.cliente)));
+  const LF = cfgs.map(x => {
+    const cli = x.nome, todos = x.tipos === 'TODOS';
+    const vA = regsDoMes(p.mes).filter(r => up(r.cliente) === up(cli) && r.pal === 0 && r.vol > 0 && (todos || ehSeparacao(r.mov))).reduce((s2, r) => s2 + r.vol, 0);
+    const vM = fracLista(p.mes).filter(f => up(f.cliente) === up(cli)).reduce((s2, f) => s2 + (+f.vol || 0), 0);
+    const t = vA + vM, form = Math.floor(t / +x.vol), resto = t - form * +x.vol;
+    return { k:cli, pct:resto / +x.vol, form, resto, vol:+x.vol };
+  }).sort((a, b) => b.form - a.form || b.pct - a.pct);
+  const fr = cfgs.length ? `<div class="bloco fr-pn"><h3>Formação de paletes (volume fracionado)</h3>${LF.map(x => `
+    <div class="bar"><span class="nm" title="${esc(x.k)}">${esc(x.k)}</span><span class="tr"><span class="fl" style="width:${Math.max(0, Math.min(100, x.pct * 100)).toFixed(1)}%"></span></span><span class="vl" title="${nf(x.resto)} de ${nf(x.vol)} volumes">${x.form ? nf(x.form) + ' plt + ' : ''}${Math.round(x.pct * 100)}%</span></div>`).join('')}
+    <p class="nota" style="margin-bottom:0">Paletes formados no mês e quanto falta para o próximo. Detalhe em Acertos.</p></div>` : '';
+  const ocu = fr + `<div class="bloco"><h3>Pallets em estoque no mês (${nf(totO)})</h3>${LO.length ? barras(LO, x => x.v, x => nf(x.v), 'lar') : `<p class="nota">Ocupação deste mês ainda não lançada.${isAdmin() ? ' Lance em Cadastros, Ocupação.' : ''}</p>`}</div>`;
   const meses = Array.from(new Set(D.meses.concat([mesAtual(), p.mes]))).sort().reverse();
   const nomeMes = m => { const [a,b] = m.split('-'); return ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][+b-1] + ' ' + a; };
   const tRet = sep.map(tempoRetirada).filter(x => x != null && x >= 0);
@@ -1455,7 +1494,19 @@ function calcAcerto(){
   });
   const semSub = Math.round((fim - subRows.reduce((s, x) => s + x.v, 0)) * 100) / 100;
   const tempos = L.map(r => dur(r.hi, r.hf)).filter(x => x != null);
-  return Object.assign(out, { ab, ini, L, linhas, fim, entr:L.reduce((s, r) => s + (r.pal > 0 ? r.pal : 0), 0), said:L.reduce((s, r) => s + (r.pal < 0 ? -r.pal : 0), 0),
+  /* volumes fracionados: lançamentos sem palete (0) somados aos volumes acumulados lançados à mão */
+  const cfg = volPalDe(A.cliente);
+  let frac = null;
+  if(cfg){
+    meses.forEach(garantirFrac);
+    if(meses.some(m => !(m in D.frac))){ out.carregando = true; return out; }
+    const auto = L.filter(r => r.pal === 0 && r.vol > 0 && (cfg.todos || ehSeparacao(r.mov)));
+    const man = meses.flatMap(fracLista).filter(x => up(x.cliente) === up(A.cliente) && (x.data || '') >= de && (x.data || '') <= ate).sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+    const vAuto = auto.reduce((s2, r) => s2 + r.vol, 0), vMan = man.reduce((s2, x) => s2 + (+x.vol || 0), 0);
+    const total = vAuto + vMan, formados = Math.floor(total / cfg.vol), resto = total - formados * cfg.vol;
+    frac = { cfg, auto, ids:new Set(auto.map(r => r.id)), man, vAuto, vMan, total, formados, resto, pct:resto / cfg.vol };
+  }
+  return Object.assign(out, { frac, ab, ini, L, linhas, fim, entr:L.reduce((s, r) => s + (r.pal > 0 ? r.pal : 0), 0), said:L.reduce((s, r) => s + (r.pal < 0 ? -r.pal : 0), 0),
     temSub: nomes.length > 0 || L.some(r => r.subcli), subRows, semSub, pecas:L.reduce((s, r) => s + r.un, 0), tempo:tempos.reduce((a, b) => a + b, 0) });
 }
 
@@ -1484,16 +1535,17 @@ function vAcertos(){
   const fonteExtra = X.de > X.mesIni + '-01' ? `, mais os lançamentos de ${dataBR(X.mesIni + '-01')} a ${dataBR(diaAntes(X.de))}` : '';
   const cadFim = A.modo === 'mes' ? ocupEntrada(A.cliente, A.mes) : null;
   const difFim = cadFim && cadFim.pallets != null && cadFim.pallets !== '' && +cadFim.pallets !== X.fim;
-  const cols = X.temSub ? 11 : 10;
+  const cols = X.temSub ? 12 : 11;
   const tabela = X.L.length ? `
     <div class="ac-wrap"><table class="ac">
-      <thead><tr><th>DATA MOV</th><th>MÊS</th><th>TIPO MOV</th>${X.temSub ? '<th>SUBCLIENTE</th>' : ''}<th>QTD<br>ENTR PLT</th><th>QTD<br>SAÍDA PLT</th><th>TOTAL DE<br>PALLETS</th><th>TEMPO DE<br>CONFERÊNCIA</th><th>NF / PEDIDO</th><th>QTD<br>PEÇAS</th><th>OBS</th></tr></thead>
+      <thead><tr><th>DATA MOV</th><th>MÊS</th><th>TIPO MOV</th>${X.temSub ? '<th>SUBCLIENTE</th>' : ''}<th>QTD<br>VOL.</th><th>QTD<br>ENTR PLT</th><th>QTD<br>SAÍDA PLT</th><th>TOTAL DE<br>PALLETS</th><th>TEMPO DE<br>CONFERÊNCIA</th><th>NF / PEDIDO</th><th>QTD<br>PEÇAS</th><th>OBS</th></tr></thead>
       <tbody>${X.linhas.map(({ r, saldo }) => `<tr onclick="abrirRegistro('${esc(r.id)}','${esc(r.data.slice(0,7))}')">
         <td>${dataBR(r.data)}</td><td>${mesSo(r.data)}</td><td class="l">${esc(r.mov)}</td>${X.temSub ? `<td class="l">${esc(r.subcli || '-')}</td>` : ''}
+        <td class="${X.frac && X.frac.ids.has(r.id) ? 'frac' : ''}" ${X.frac && X.frac.ids.has(r.id) ? 'title="Volume fracionado: soma na formação de palete"' : ''}>${nf(r.vol)}</td>
         <td>${r.pal > 0 ? nf(r.pal) : ''}</td><td>${r.pal < 0 ? nf(-r.pal) : ''}</td>
         <td class="tot ${saldo < 0 ? 'neg' : ''}">${nf(Math.round(saldo * 100) / 100)}</td>
         <td>${fmtDur(dur(r.hi, r.hf))}</td><td>${esc(r.nf)}</td><td>${nf(r.un)}</td><td class="l">${esc(r.obs)}</td></tr>`).join('')}</tbody>
-      <tfoot><tr><td colspan="${X.temSub ? 4 : 3}"></td><td>${nf(X.entr)}</td><td>${nf(X.said)}</td><td colspan="${cols - (X.temSub ? 6 : 5)}"></td></tr></tfoot>
+      <tfoot><tr><td colspan="${X.temSub ? 4 : 3}"></td><td>${nf(X.L.reduce((s2, r) => s2 + r.vol, 0))}</td><td>${nf(X.entr)}</td><td>${nf(X.said)}</td><td colspan="${cols - (X.temSub ? 7 : 6)}"></td></tr></tfoot>
     </table></div>`
     : `<div class="vazio" style="margin:14px 16px">Nenhum lançamento de ${esc(A.cliente)} neste período.</div>`;
   const quadroSub = X.temSub ? `<table class="ac-sub"><tbody>
@@ -1526,7 +1578,89 @@ function vAcertos(){
         <span>Tempo total de conferência</span><b>${fmtDur(X.tempo)}</b>
       </div>
     </div>
+    ${blocoFrac(X)}
   </div>`;
+}
+
+function blocoFrac(X){
+  const A = S.a, F = X.frac;
+  if(!F) return `<div class="fr no-print"><h3>Formação de paletes por volume fracionado</h3>
+    <p class="nota" style="margin:0 0 10px">Defina quantos volumes formam 1 palete para ${esc(A.cliente)}. As separações lançadas sem palete passam a ser somadas até completar um palete cobrável.</p>
+    ${isAdmin() ? `<button class="btn btn-sec" onclick="abrirVolPal()">Definir volumes por palete</button>` : '<p class="nota">Peça a um administrador para configurar.</p>'}</div>`;
+  const pct = Math.round(F.pct * 1000) / 10;
+  const proxMes = A.modo === 'mes' ? mesesEntre(A.mes, '9999-12')[1] : '';
+  return `<div class="fr">
+    <h3>Formação de paletes por volume fracionado <span class="dica">${nf(F.cfg.vol)} volumes = 1 palete | conta ${F.cfg.todos ? 'todos os movimentos' : 'só separações'} sem palete</span></h3>
+    <div class="fr-num">
+      <div><b>${nf(F.vAuto)}</b><span>vol. fracionados nos lançamentos (${nf(F.auto.length)})</span></div>
+      <div><b>${nf(F.vMan)}</b><span>vol. acumulados lançados à mão (${nf(F.man.length)})</span></div>
+      <div><b>${nf(F.total)}</b><span>volumes acumulados no período</span></div>
+      <div class="dest"><b>${nf(F.formados)}</b><span>palete(s) formado(s) a cobrar</span></div>
+    </div>
+    <div class="fr-prog"><div class="fr-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${Math.min(100, Math.max(0, pct))}%"></i></div>
+      <div class="fr-tx"><b>${String(pct).replace('.', ',')}%</b> do próximo palete | ${nf(F.resto)} de ${nf(F.cfg.vol)} volumes | faltam <b>${nf(F.cfg.vol - F.resto)}</b></div></div>
+    <p class="fr-cob">Paletes cobráveis no período: <b>${nf(X.entr)}</b> entrada + <b>${nf(X.said)}</b> saída + <b>${nf(F.formados)}</b> formados por fracionado = <b>${nf(X.entr + X.said + F.formados)}</b></p>
+    ${F.man.length ? `<table class="ac fr-man"><thead><tr><th>DATA</th><th>VOLUMES ACUMULADOS</th><th>OBS</th><th>LANÇADO POR</th>${isAdmin() ? '<th class="no-print"></th>' : ''}</tr></thead><tbody>
+      ${F.man.map(x => `<tr style="cursor:default"><td>${dataBR(x.data)}</td><td>${nf(x.vol)}</td><td class="l">${esc(x.obs || '')}</td><td>${esc(x.por || '')}</td>${isAdmin() ? `<td class="no-print"><button class="mini" onclick="excluirFrac('${esc(x.mes)}','${esc(x.id)}')">Excluir</button></td>` : ''}</tr>`).join('')}</tbody></table>` : ''}
+    <div class="ac-acoes no-print" style="justify-content:flex-start;margin-bottom:0">
+      <button class="btn btn-pri" onclick="abrirFrac()">Lançar volumes acumulados</button>
+      ${isAdmin() && proxMes && F.resto > 0 ? `<button class="btn btn-sec" onclick="transportarSobra()">Levar sobra de ${nf(F.resto)} vol. para ${mesSo(proxMes)}</button>` : ''}
+      ${isAdmin() ? `<button class="btn btn-sec" onclick="abrirVolPal()">Alterar volumes por palete</button>` : ''}
+    </div>
+  </div>`;
+}
+function abrirVolPal(){
+  const cli = S.a.cliente; if(!cli) return;
+  const x = (D.cad.volpal || {})[chave(up(cli))] || {};
+  abrirModal('Volumes por palete: ' + cli, `
+    <form id="fVp" class="form" ${CAMPO} onsubmit="return false">
+      <label class="f full"><span>Quantidade mínima de volumes que forma 1 palete<em>*</em></span><input class="in" type="number" min="0" step="1" name="px-vp" value="${x.vol || ''}" required></label>
+      <label class="f full">Contar como fracionado<select class="in" name="px-vp-tipos">
+        <option value="SEP" ${x.tipos !== 'TODOS' ? 'selected' : ''}>Só separações de pedido lançadas sem palete</option>
+        <option value="TODOS" ${x.tipos === 'TODOS' ? 'selected' : ''}>Todos os movimentos lançados sem palete (entradas, devoluções e separações)</option></select></label>
+    </form><p class="nota">Deixe 0 para desligar a formação de paletes deste cliente.</p><div id="fErro"></div>`,
+    `<button class="btn btn-sec" onclick="fecharModal()">Cancelar</button><button class="btn btn-pri" id="bOk">Salvar</button>`);
+  $('#bOk').onclick = () => {
+    const f = $('#fVp'); if(!f.reportValidity()) return;
+    const v = Math.max(0, Math.round(Number(f['px-vp'].value) || 0)), k = 'cad/volpal/' + chave(up(cli));
+    enqueue(v ? { t:'set', p:k, v:{ nome:up(cli), ativo:true, vol:v, tipos:f['px-vp-tipos'].value } } : { t:'del', p:k });
+    fecharModal(); toast(v ? 'Volumes por palete salvos.' : 'Formação de paletes desligada para ' + cli + '.');
+  };
+}
+function abrirFrac(){
+  const X = calcAcerto(); if(X.carregando || !X.cliente) return;
+  const hoje = hojeISO(), dt = hoje < X.de ? X.de : hoje > X.ate ? X.ate : hoje;
+  abrirModal('Lançar volumes acumulados', `
+    <div class="resumo-op"><div class="cli">${esc(X.cliente)}</div><div class="meta">Soma de itens separados com pouca volumetria que não foram lançados em paletes. Entra na formação de paletes do período.</div></div>
+    <form id="fFr" class="form" ${CAMPO} onsubmit="return false">
+      <label class="f"><span>Data<em>*</em></span><input class="in" type="date" name="px-fr-data" value="${dt}" required></label>
+      <label class="f"><span>Volumes<em>*</em></span><input class="in" type="number" step="1" name="px-fr-vol" required></label>
+      <label class="f full">Observação<input class="in" name="px-fr-obs" ${CAMPO} placeholder="Ex.: pedidos pequenos da semana 38"></label>
+    </form><p class="nota">Use número negativo para corrigir um lançamento anterior.</p><div id="fErro"></div>`,
+    `<button class="btn btn-sec" onclick="fecharModal()">Cancelar</button><button class="btn btn-pri" id="bOk">Salvar volumes</button>`);
+  $('#bOk').onclick = () => {
+    const f = $('#fFr'); if(!f.reportValidity()) return;
+    const data = f['px-fr-data'].value, vol = Math.round(Number(f['px-fr-vol'].value) || 0);
+    if(!vol) return erroForm('Informe a quantidade de volumes.');
+    const m = data.slice(0,7);
+    enqueue({ t:'set', p:'frac/' + m + '/' + novoId(), v:{ data, cliente:up(X.cliente), vol, obs:f['px-fr-obs'].value.trim() || null, por:S.user.usuario, ts:Date.now() } });
+    garantirFrac(m); fecharModal(); toast(nf(vol) + ' volumes lançados para ' + X.cliente + '.');
+  };
+}
+function excluirFrac(m, id){
+  const x = (D.frac[m] || {})[id]; if(!x) return;
+  if(!confirm('Excluir o lançamento de ' + nf(x.vol) + ' volumes de ' + dataBR(x.data) + '?')) return;
+  enqueue({ t:'del', p:'frac/' + m + '/' + id }); toast('Lançamento de volumes excluído.');
+}
+function transportarSobra(){
+  const X = calcAcerto(); if(X.carregando || !X.frac || S.a.modo !== 'mes') return;
+  const prox = mesesEntre(S.a.mes, '9999-12')[1], F = X.frac;
+  const ja = fracLista(prox).find(x => up(x.cliente) === up(X.cliente) && x.origem === S.a.mes);
+  if(ja && !confirm('Já existe uma sobra de ' + mesNome(S.a.mes) + ' lançada em ' + mesNome(prox) + ' (' + nf(ja.vol) + ' vol.). Substituir?')) return;
+  if(!ja && !confirm('Lançar ' + nf(F.resto) + ' volumes em 01/' + prox.slice(5) + '/' + prox.slice(0,4) + ' como sobra de ' + mesNome(S.a.mes) + '?')) return;
+  garantirFrac(prox);
+  enqueue({ t:'set', p:'frac/' + prox + '/' + (ja ? ja.id : novoId()), v:{ data:prox + '-01', cliente:up(X.cliente), vol:F.resto, obs:'Sobra de ' + mesNome(S.a.mes), origem:S.a.mes, por:S.user.usuario, ts:Date.now() } });
+  toast('Sobra levada para ' + mesNome(prox) + '.');
 }
 
 /* saldo inicial = fechamento do mês anterior ao início do acerto, por subcliente */
@@ -1572,12 +1706,17 @@ function exportarAcerto(){
   L.push(['ACERTO ' + X.cliente, dataBR(X.de) + ' a ' + dataBR(X.ate)]);
   L.push(['SALDO INICIAL', X.ini.total]);
   L.push([]);
-  L.push(['DATA MOV','MÊS','TIPO MOV'].concat(X.temSub ? ['SUBCLIENTE'] : [], ['QTD ENTR PLT','QTD SAÍDA PLT','TOTAL DE PALLETS','TEMPO DE CONFERENCIA','NF / PEDIDO','QTD PEÇAS','OBS']));
-  X.linhas.forEach(({ r, saldo }) => L.push([dataBR(r.data), mesSo(r.data), r.mov].concat(X.temSub ? [r.subcli] : [], [r.pal > 0 ? r.pal : '', r.pal < 0 ? -r.pal : '', saldo, fmtDur(dur(r.hi, r.hf)), r.nf, r.un, r.obs])));
-  L.push(['', '', ''].concat(X.temSub ? [''] : [], [X.entr, X.said]));
+  L.push(['DATA MOV','MÊS','TIPO MOV'].concat(X.temSub ? ['SUBCLIENTE'] : [], ['QTD VOL','QTD ENTR PLT','QTD SAÍDA PLT','TOTAL DE PALLETS','TEMPO DE CONFERENCIA','NF / PEDIDO','QTD PEÇAS','OBS']));
+  X.linhas.forEach(({ r, saldo }) => L.push([dataBR(r.data), mesSo(r.data), r.mov].concat(X.temSub ? [r.subcli] : [], [r.vol, r.pal > 0 ? r.pal : '', r.pal < 0 ? -r.pal : '', saldo, fmtDur(dur(r.hi, r.hf)), r.nf, r.un, r.obs])));
+  L.push(['', '', ''].concat(X.temSub ? [''] : [], [X.L.reduce((s2, r) => s2 + r.vol, 0), X.entr, X.said]));
   L.push([]);
   if(X.temSub){ X.subRows.forEach(x => L.push([x.n, x.v])); if(X.semSub) L.push(['SEM SUBCLIENTE', X.semSub]); }
   L.push(['TOTAL', X.fim]);
+  if(X.frac){ const F = X.frac; L.push([]); L.push(['FORMAÇÃO DE PALETES (VOLUME FRACIONADO)', F.cfg.vol + ' volumes = 1 palete']);
+    L.push(['Volumes fracionados nos lançamentos', F.vAuto]); L.push(['Volumes acumulados lançados à mão', F.vMan]); L.push(['Total de volumes', F.total]);
+    L.push(['Paletes formados a cobrar', F.formados]); L.push(['Sobra (volumes)', F.resto, Math.round(F.pct * 1000) / 10 + '%']);
+    L.push(['Paletes cobráveis no período', X.entr + X.said + F.formados]);
+    F.man.forEach(x => L.push(['Acumulado ' + dataBR(x.data), x.vol, x.obs || '', x.por || ''])); }
   const nome = 'acerto_' + X.cliente.replace(/[^A-Z0-9]+/gi, '_') + '_' + X.de + '_a_' + X.ate + '.csv';
   baixar(new Blob(['﻿' + L.map(l => l.map(q).join(';')).join('\r\n')], { type:'text/csv;charset=utf-8' }), nome);
 }
@@ -2095,9 +2234,10 @@ const TAB = {
         ['disp','DISPOSITIVO','@'],['upd','ALTERADO EM','t'],['subcli','SUBCLIENTE','@']],
   ANDAMENTO: [['id','ID','@'],['data','DATA','d'],['hi','HORA INICIAL','@'],['cliente','CLIENTE','@'],['mov','MOVIMENTO','@'],['colab','COLABORADOR','@'],
               ['nf','NF/ DI/ PED','@'],['usuario','USUÁRIO','@'],['inicio','INÍCIO','t'],['disp','DISPOSITIVO','@'],['subcli','SUBCLIENTE','@']],
-  CADASTROS: [['tipo','TIPO','@'],['key','CHAVE','@'],['nome','NOME','@'],['ativo','ATIVO','b'],['cliente','CLIENTE (SUBCLIENTE)','@']],
+  CADASTROS: [['tipo','TIPO','@'],['key','CHAVE','@'],['nome','NOME','@'],['ativo','ATIVO','b'],['cliente','CLIENTE (SUBCLIENTE)','@'],['vol','VOLUMES POR PALETE','n'],['tipos','CONTAGEM FRACIONADO','@']],
   USUARIOS: [['login','USUÁRIO','@'],['nome','NOME','@'],['senha','SENHA','@'],['perfil','PERFIL','@'],['ativo','ATIVO','b']],
-  OCUPACAO: [['mes','MÊS','@'],['key','CHAVE','@'],['cliente','CLIENTE','@'],['pallets','PALLETS','n'],['sub','SUBCLIENTES','@']]
+  OCUPACAO: [['mes','MÊS','@'],['key','CHAVE','@'],['cliente','CLIENTE','@'],['pallets','PALLETS','n'],['sub','SUBCLIENTES','@']],
+  FRACAO: [['mes','MÊS','@'],['id','ID','@'],['data','DATA','d'],['cliente','CLIENTE','@'],['vol','VOLUMES','n'],['obs','OBS','@'],['por','LANÇADO POR','@'],['ts','LANÇADO EM','t']]
 };
 function cabDe(spec){ const c = [], f = []; spec.forEach(([, h, t]) => {
   if(t === 'd' || t === 't'){ c.push(h + ' (MS)', h); f.push('ms', '@'); } else { c.push(h); f.push(t === 'n' ? 'n' : '@'); } }); return { cab:c, fmt:f }; }
@@ -2122,13 +2262,15 @@ function objDe(spec, cab, linha){
   return o;
 }
 function montarTabelas(all){
-  const t = { MOV:[], ANDAMENTO:[], CADASTROS:[], USUARIOS:[], OCUPACAO:[] };
+  const t = { MOV:[], ANDAMENTO:[], CADASTROS:[], USUARIOS:[], OCUPACAO:[], FRACAO:[] };
+  Object.entries(all.frac || {}).forEach(([mes, o]) => Object.entries(o || {}).forEach(([id, x]) => t.FRACAO.push(Object.assign({}, x, { mes, id }))));
   Object.entries(all.mov || {}).forEach(([m, o]) => Object.entries(o || {}).forEach(([id, r]) => t.MOV.push(normReg(r, id))));
   Object.entries(all.andamento || {}).forEach(([id, a]) => t.ANDAMENTO.push(Object.assign({}, a, { id })));
-  Object.entries(all.cad || {}).forEach(([tipo, o]) => Object.entries(o || {}).forEach(([key, x]) => t.CADASTROS.push({ tipo, key, nome:x.nome, ativo:x.ativo !== false, cliente:x.cliente || '' })));
+  Object.entries(all.cad || {}).forEach(([tipo, o]) => Object.entries(o || {}).forEach(([key, x]) => t.CADASTROS.push({ tipo, key, nome:x.nome, ativo:x.ativo !== false, cliente:x.cliente || '', vol:x.vol || 0, tipos:x.tipos || '' })));
   Object.entries(all.usuarios || {}).forEach(([login, u]) => t.USUARIOS.push(Object.assign({}, u, { login })));
   Object.entries(all.ocupacao || {}).forEach(([mes, o]) => Object.entries(o || {}).forEach(([key, x]) => t.OCUPACAO.push({ mes, key, cliente:x.cliente, pallets:x.pallets, sub:x.sub ? JSON.stringify(x.sub) : '' })));
   const out = {};
+  if(!t.FRACAO.length) delete t.FRACAO;   /* só cria a aba quando houver volumes acumulados */
   Object.keys(t).forEach(tp => { const c = cabDe(TAB[tp]); out[tp] = { cab:c.cab, fmt:c.fmt, linhas:t[tp].map(o => linhaDe(TAB[tp], o)) }; });
   return out;
 }
@@ -2141,9 +2283,11 @@ function caminhosDe(tipo, o, mapa){
   } else if(tipo === 'ANDAMENTO'){
     if(!o.id) return; const a = Object.assign({}, o); delete a.id; Object.keys(a).forEach(k => { if(a[k] === '') a[k] = null; }); mapa['andamento/' + chave(o.id)] = limpa(a);
   } else if(tipo === 'CADASTROS'){
-    if(!o.tipo || !o.nome) return; mapa['cad/' + o.tipo + '/' + (o.key || chave(o.nome))] = Object.assign({ nome:o.nome, ativo:o.ativo !== false }, o.cliente ? { cliente:o.cliente } : {});
+    if(!o.tipo || !o.nome) return; mapa['cad/' + o.tipo + '/' + (o.key || chave(o.nome))] = Object.assign({ nome:o.nome, ativo:o.ativo !== false }, o.cliente ? { cliente:o.cliente } : {}, +o.vol > 0 ? { vol:+o.vol } : {}, o.tipos ? { tipos:o.tipos } : {});
   } else if(tipo === 'USUARIOS'){
     if(!o.login) return; mapa['usuarios/' + chave(up(o.login))] = { nome:o.nome || o.login, senha:String(o.senha || ''), perfil:o.perfil === 'ADMIN' ? 'ADMIN' : 'OPERADOR', ativo:o.ativo !== false };
+  } else if(tipo === 'FRACAO'){
+    if(!o.mes || !o.id || !o.cliente) return; mapa['frac/' + o.mes + '/' + chave(o.id)] = { data:o.data || null, cliente:o.cliente, vol:Number(o.vol) || 0, obs:o.obs || null, por:o.por || null, ts:o.ts || null };
   } else if(tipo === 'OCUPACAO'){
     if(!o.mes || !o.cliente) return; let sub = null; try{ sub = o.sub ? JSON.parse(o.sub) : null; }catch(e){ sub = null; }
     mapa['ocupacao/' + o.mes + '/' + (o.key || chave(o.cliente))] = Object.assign({ cliente:o.cliente, pallets:Number(o.pallets) || 0 }, sub ? { sub } : {});
@@ -2245,7 +2389,7 @@ async function restaurar(b, modo){
     }
     if(modo === 'substituir'){
       progresso('Apagando os dados atuais…', 0.5);
-      await comTimeout(root.update({ mov:null, pendentes:null, meses:null, andamento:null, cad:null, usuarios:null, ocupacao:null }), 30000, 'O banco não confirmou a limpeza.');
+      await comTimeout(root.update({ mov:null, pendentes:null, meses:null, andamento:null, cad:null, usuarios:null, ocupacao:null, frac:null }), 30000, 'O banco não confirmou a limpeza.');
     }
     await gravarEmLotes(mapa, 'Gravando no banco', 0.5, 0.5);
     progressoFim();
