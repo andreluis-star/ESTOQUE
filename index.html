@@ -402,7 +402,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-conten
 /* ═══════════════════════════════════════════════════════════
    PORTOEX · Controle de Estoque — Firebase Realtime Database
    ═══════════════════════════════════════════════════════════ */
-const VERSAO = 'v2026.10.15-a';
+const VERSAO = 'v2026.11.12-a';
 const RAIZ = 'estoque';                      // nó raiz deste app no banco
 const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyC7z_sLiojkDBmOFK4pjSCqFACzArfZDts',
@@ -415,6 +415,7 @@ const FIREBASE_CONFIG = {
 };
 const BACKUP_URL_PADRAO = 'https://script.google.com/macros/s/AKfycbzm0jDkFfgGpci-E0SPLV3qmBdwst1fv9vTjDn2lvFxtY4JFuHn5aPjdztyIMgk24wtlA/exec';
 const BACKUP_TOKEN = 'PX-ESTOQUE-2026-k7Qm';  // igual ao TOKEN do Code.gs
+const EXCLUIR_HASH = 'df0066ca9951a98ba77b56bd3da2440018e8bfe8e813e665202e063d8940cd6c'; // SHA-256 da senha de exclusão de lançamentos
 const SENHA_HASH = 'db59c659e396b14081d9d3da4d8e7d4c34404d3fc288c4203e6bda1caef8e432'; // SHA-256 da senha de restauração/importação
 const ADMIN_INICIAL = { login:'ADMIN', senha:'portoex2026' }; // só vale enquanto não houver usuários no banco
 
@@ -504,11 +505,31 @@ function ouvir(){
   root.child('cad').on('value', s => { D.cad = s.val() || {}; D.cadOk = true; agendar(); }, erroLeitura);
   root.child('usuarios').on('value', s => { D.usuarios = s.val() || {}; D.usuOk = true; validarSessao(); agendar(); }, erroLeitura);
   root.child('meta').on('value', s => { D.meta = s.val() || {}; agendar(); }, erroLeitura);
-  root.child('meses').on('value', s => { D.meses = Object.keys(s.val() || {}).sort(); agendar(); }, erroLeitura);
+  root.child('meses').on('value', s => { D.meses = Object.keys(s.val() || {}).sort(); garantirMeses(mesesConferencia()); agendar(); }, erroLeitura);
   root.child('pedidosEmail').on('value', s => { D.pedidos = s.val() || {}; D.pedOk = true; processarRecebidos(); agendar(); }, erroLeitura);
   garantirMeses([mesAtual(), mesAnterior(), ...mesesPedidos]);
   Object.keys(ouvindoOcup).forEach(m => { delete ouvindoOcup[m]; garantirOcup(m); });
 }
+/* meses carregados para conferir NF / DI / PED repetido: últimos 12 meses */
+function mesesConferencia(){ const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 12); const lim = isoDe(d).slice(0,7); return D.meses.filter(m => m >= lim); }
+const nfNorm = s => up(s).replace(/[^A-Z0-9]/g, '');
+/* procura o mesmo NF / DI / PED para o mesmo cliente nos lançamentos e nas operações em andamento */
+function acharDuplicado(nf, cliente, ignorarId){
+  const n = nfNorm(nf), c = up(cliente);
+  if(!n || !c) return null;
+  const faltam = mesesConferencia().filter(m => !D.carregado[m]);
+  if(faltam.length) return { carregando:true };
+  for(const [id, a] of Object.entries(D.andamento)){
+    if(id !== ignorarId && up(a.cliente) === c && nfNorm(a.nf) === n) return { onde:'em andamento', mov:a.mov, data:a.data, colab:a.colab, nf:a.nf };
+  }
+  const r = registros().find(x => x.id !== ignorarId && up(x.cliente) === c && nfNorm(x.nf) === n);
+  return r ? { onde:'lançado', mov:r.mov, data:r.data, colab:r.colab, nf:r.nf } : null;
+}
+function msgDuplicado(d, cliente){
+  if(d.carregando) return 'Ainda carregando os lançamentos para conferir se este NF / DI / PED já existe. Aguarde alguns segundos e toque em salvar de novo.';
+  return 'O NF / DI / PED "' + d.nf + '" já está cadastrado para ' + up(cliente) + ' (' + d.onde + ': ' + d.mov + ' em ' + dataBR(d.data) + ', ' + d.colab + '). Não é possível cadastrar duas vezes.';
+}
+
 /* registros ficam particionados por mês: só os meses em uso são baixados (em tempo real) */
 function garantirMeses(lista){
   lista.forEach(m => {
@@ -1603,6 +1624,10 @@ function salvarForm(modo, id, rOrig){
       if(d != null && d > 12 * 3600 && !confirm('O tempo realizado passou de 12 horas (' + fmtDur(d) + '). Confirma os horários?')) return;
     }
     const msgSep = 'Pedido separado. Ele ficou em "Aguardando retirada".';
+    if(modo === 'iniciar' || modo === 'novo' || modo === 'editar'){
+      const dup = acharDuplicado(reg.nf, reg.cliente, modo === 'editar' && rOrig ? rOrig.id : null);
+      if(dup) return erroForm(msgDuplicado(dup, reg.cliente));
+    }
     if(modo === 'iniciar'){
       const novo = { data:reg.data, hi:reg.hi, cliente:up(reg.cliente), mov:up(reg.mov), colab:up(reg.colab), nf:String(reg.nf || '').trim(), usuario:S.user.usuario, inicio:Date.now(), disp:DISP };
       if(!novo.data || !novo.hi || !novo.cliente || !novo.mov || !novo.colab) return erroForm('Preencha todos os campos obrigatórios.');
@@ -1637,9 +1662,21 @@ function salvarForm(modo, id, rOrig){
   }catch(e){ erroForm(e.message); }
 }
 function excluirReg(r){
-  if(!confirm(`Excluir o lançamento de ${r.cliente} em ${dataBR(r.data)} (${r.mov})?`)) return;
-  enqueue({ t:'del', p:pathReg(r) }, { t:'del', p:'pendentes/' + r.id });
-  fecharModal(); toast('Lançamento excluído.');
+  abrirModal('Excluir lançamento', `
+    <div class="resumo-op"><div class="cli">${esc(r.cliente)}</div><div class="meta">${esc(r.nf || 'Sem nº')} | ${esc(r.mov)} | ${dataBR(r.data)} | ${esc(r.colab)}</div></div>
+    <form id="fDel" class="form" ${CAMPO} onsubmit="return false">
+      <label class="f full"><span>Senha para excluir<em>*</em></span><input class="in senha" type="text" inputmode="numeric" name="px-del-pin" ${CAMPO} required></label>
+    </form><p class="nota">O lançamento será apagado do banco. Esta ação não pode ser desfeita.</p><div id="fErro"></div>`,
+    `<button class="btn btn-sec" onclick="fecharModal()">Cancelar</button><button class="btn btn-del" id="bOkDel">Excluir</button>`);
+  const campo = document.querySelector('input[name="px-del-pin"]'); if(campo) campo.focus();
+  $('#bOkDel').onclick = async () => {
+    const f = $('#fDel'); if(!f.reportValidity()) return;
+    let ok = false;
+    try{ ok = (await sha256(String(f['px-del-pin'].value || '').trim())) === EXCLUIR_HASH; }catch(e){ return erroForm(e.message); }
+    if(!ok){ f['px-del-pin'].value = ''; return erroForm('Senha incorreta. O lançamento não foi excluído.'); }
+    enqueue({ t:'del', p:pathReg(r) }, { t:'del', p:'pendentes/' + r.id });
+    fecharModal(); toast('Lançamento excluído.');
+  };
 }
 
 /* ══════════ ENTREGA / RETIRADA ══════════ */
