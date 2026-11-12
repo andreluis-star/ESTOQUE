@@ -419,7 +419,7 @@ const EXCLUIR_HASH = 'df0066ca9951a98ba77b56bd3da2440018e8bfe8e813e665202e063d89
 const SENHA_HASH = 'db59c659e396b14081d9d3da4d8e7d4c34404d3fc288c4203e6bda1caef8e432'; // SHA-256 da senha de restauração/importação
 const ADMIN_INICIAL = { login:'ADMIN', senha:'portoex2026' }; // só vale enquanto não houver usuários no banco
 
-const K = { fb:'pe_est_fbcfg', bkp:'pe_est_bkpurl', disp:'pe_est_disp', sess:'pe_est_sessao', fila:'pe_est_fila', seq:'pe_est_seq', diario:'pe_est_diario' };
+const K = { fb:'pe_est_fbcfg', bkp:'pe_est_bkpurl', disp:'pe_est_disp', sess:'pe_est_sessao', fila:'pe_est_fila', seq:'pe_est_seq', diario:'pe_est_diario', palc:'pe_est_palcalc' };
 const store = {
   get(k, d){ try{ const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); }catch(e){ return d; } },
   set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){ toast('Memória do aparelho cheia: não foi possível salvar a fila.', true); } },
@@ -474,7 +474,7 @@ const ST_AG='AGUARDANDO RETIRADA', ST_EN='ENTREGUE';
 const S = {
   user:null, tab:'operacao', cad:'clientes', menu:false,
   f:{ de: hojeISO().slice(0,8)+'01', ate: hojeISO(), cliente:'', mov:'', colab:'', ent:'', q:'' },
-  p:{ mes: mesAtual(), cliente:'' }, ocMes: mesAtual(), pSelOn:false, pSel:{}
+  p:{ mes: mesAtual(), cliente:'' }, ocMes: mesAtual(), pSelOn:false, pSel:{}, palCalc: store.get(K.palc, false)
 };
 const D = { mov:{}, carregado:{}, meses:[], andamento:{}, andOk:false, pendentes:{}, pendOk:false,
             cad:{}, cadOk:false, usuarios:{}, usuOk:false, ocupacao:{}, meta:{}, pedidos:{}, pedOk:false };
@@ -564,6 +564,70 @@ const acharReg = id => registros().find(r => r.id === id) || (D.pendentes[id] ? 
 const cadLista = tipo => Object.entries(D.cad[tipo] || {}).map(([k, x]) => ({ key:k, nome:(x && x.nome) || k, ativo: !(x && x.ativo === false) }));
 const ativos = tipo => cadLista(tipo).filter(x => x.ativo).map(x => x.nome).sort((a,b) => a.localeCompare(b));
 const isAdmin = () => S.user && S.user.perfil === 'ADMIN';
+
+/* ═══════════ PALETES CALCULADOS PELOS VOLUMES ═══════════
+   cad/paletes/{cliente} = { nome, ativo, vpp (volumes por palete), saldoIni (paletes no início do dia dataIni), dataIni } */
+const sinalPalete = m => /SEPARA/i.test(m || '') ? -1 : /ENTRADA|RECEB|DEVOLU.*ESTOQUE/i.test(m || '') ? 1 : 0;
+const cfgPalete = cli => { const x = (D.cad.paletes || {})[chave(up(cli))]; return x && +x.vpp > 0 ? x : null; };
+const palCalc = r => { const c = cfgPalete(r.cliente), si = sinalPalete(r.mov); return c && si ? si * r.vol / +c.vpp : null; };
+const fmtPal = n => n == null || isNaN(n) ? '-' : (Math.round(n * 100) / 100).toLocaleString('pt-BR', { maximumFractionDigits:2 });
+const diaSeguinte = iso => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + 1); return isoDe(d); };
+function mesesEntre(a, b){ const out = []; let m = a.slice(0,7); while(m <= b.slice(0,7)){ out.push(m); const [y, n] = m.split('-').map(Number); m = n === 12 ? (y + 1) + '-01' : y + '-' + p2(n + 1); } return out; }
+/* saldo dia a dia dos clientes configurados (um cliente ou todos), da data inicial até "ate" */
+function saldoPaletes(cliente, ate){
+  ate = ate || hojeISO();
+  const cfgs = Object.values(D.cad.paletes || {}).filter(x => x && +x.vpp > 0 && x.dataIni && x.dataIni <= ate && (!cliente || up(x.nome) === up(cliente)));
+  if(!cfgs.length) return null;
+  const ini = cfgs.map(x => x.dataIni).sort()[0];
+  const meses = mesesEntre(ini, ate); garantirMeses(meses);
+  const faltam = meses.filter(m => !D.carregado[m]).length;
+  const porCli = {}; cfgs.forEach(x => { porCli[up(x.nome)] = x; });
+  const mov = {};
+  registros().forEach(r => {
+    const c = porCli[up(r.cliente)], si = sinalPalete(r.mov);
+    if(!c || !si || r.data < c.dataIni || r.data > ate) return;
+    const d = mov[r.data] = mov[r.data] || { ent:0, sai:0 };
+    if(si > 0) d.ent += r.vol / +c.vpp; else d.sai += r.vol / +c.vpp;
+  });
+  const dias = []; let saldo = 0;
+  for(let d = ini; d <= ate; d = diaSeguinte(d)){
+    const abre = cfgs.filter(x => x.dataIni === d).reduce((t, x) => t + (+x.saldoIni || 0), 0);
+    const m = mov[d] || { ent:0, sai:0 };
+    saldo += abre + m.ent - m.sai;
+    dias.push({ data:d, abre, ent:m.ent, sai:m.sai, saldo });
+  }
+  return { dias, cfgs, faltam, saldo };
+}
+function alternarPalCalc(on){ S.palCalc = !!on; store.set(K.palc, S.palCalc); render(); }
+function vSaldoPaletes(){
+  const ate = S.f.ate || hojeISO(), sp = saldoPaletes(S.f.cliente, ate);
+  if(!sp) return `<section class="secao"><h2>Saldo diário de paletes</h2><div class="vazio">${S.f.cliente ? 'O cliente ' + esc(S.f.cliente) + ' não tem' : 'Nenhum cliente tem'} volumes por palete e saldo inicial cadastrados${isAdmin() ? '. Cadastre em <b>Cadastros, Paletes</b>.' : '. Peça a um administrador para cadastrar em Cadastros, Paletes.'}</div></section>`;
+  const de = S.f.de && S.f.de > sp.dias[0].data ? S.f.de : sp.dias[0].data;
+  const vis = sp.dias.filter(d => d.data >= de).reverse(), LIM = 62;
+  return `<section class="secao">
+    <h2>Saldo diário de paletes<small>${S.f.cliente ? esc(S.f.cliente) : sp.cfgs.length + ' cliente' + (sp.cfgs.length > 1 ? 's' : '')}</small></h2>
+    ${sp.faltam ? `<p class="nota">Carregando ${sp.faltam} mês(es) do banco… o saldo ainda pode mudar.</p>` : ''}
+    <div class="resumo">
+      <span><b>${fmtPal(sp.saldo)}</b>paletes em ${dataBR(ate)}</span>
+      ${sp.cfgs.map(x => `<span title="${esc(x.vpp)} volumes por palete | saldo inicial ${fmtPal(+x.saldoIni || 0)} em ${dataBR(x.dataIni)}"><b>${nf(x.vpp)}</b>vol./palete ${esc(x.nome)}</span>`).join('')}
+    </div>
+    <div class="barra" style="margin:0 0 12px"><span class="nota" style="margin:0">Entrada de mercadoria e devolução ao estoque somam; separação subtrai. Saldo ao fim de cada dia.</span>
+      <button class="btn btn-sec" onclick="exportarSaldoPaletes()">Exportar saldo diário</button></div>
+    <div class="tab-wrap"><table class="t">
+      <thead><tr><th>Data</th><th class="n">Saldo inicial</th><th class="n">Entradas</th><th class="n">Saídas</th><th class="n">Saldo do dia</th></tr></thead>
+      <tbody>${vis.slice(0, LIM).map(d => `<tr style="cursor:default"><td data-l="Data">${dataBR(d.data)}</td><td class="n" data-l="Saldo inicial">${d.abre ? fmtPal(d.abre) : '-'}</td>
+        <td class="n" data-l="Entradas">${d.ent ? '+' + fmtPal(d.ent) : '-'}</td><td class="n" data-l="Saídas">${d.sai ? '−' + fmtPal(d.sai) : '-'}</td><td class="n" data-l="Saldo do dia"><b>${fmtPal(d.saldo)}</b></td></tr>`).join('')}</tbody>
+    </table></div>
+    ${vis.length > LIM ? `<p class="nota">Mostrando os ${LIM} dias mais recentes. A exportação inclui todos.</p>` : ''}
+  </section>`;
+}
+function exportarSaldoPaletes(){
+  const ate = S.f.ate || hojeISO(), sp = saldoPaletes(S.f.cliente, ate); if(!sp) return;
+  const n = v => String(Math.round(v * 100) / 100).replace('.', ',');
+  const linhas = sp.dias.map(d => [dataBR(d.data), n(d.abre), n(d.ent), n(d.sai), n(d.saldo)].join(';'));
+  baixar(new Blob(['﻿' + ['DATA;SALDO INICIAL;ENTRADAS (PALETES);SAÍDAS (PALETES);SALDO DO DIA'].concat(linhas).join('\r\n')], { type:'text/csv;charset=utf-8' }),
+    `saldo_paletes_${S.f.cliente ? chave(S.f.cliente).replace(/\s+/g, '_') : 'todos'}_ate_${ate}.csv`);
+}
 
 /* ═══════════ FILA DE GRAVAÇÃO OFFLINE ═══════════
    op = {t:'set'|'upd'|'del', p:'caminho/relativo/à/raiz', v:valor}  — tudo idempotente */
@@ -1278,34 +1342,39 @@ function vLancamentos(){
     <span><b>${nf(soma('vol'))}</b>volumes</span>
     <span><b>${nf(soma('un'))}</b>unidades</span>
     <span><b>${nf(soma('pal'))}</b>pallets (saldo)</span>
+    ${S.palCalc ? `<span><b>${fmtPal(L.reduce((s, r) => s + (palCalc(r) || 0), 0))}</b>paletes calculados (saldo)</span>` : ''}
     <span><b>${nf(div)}</b>com divergência</span>
   </div>
   <div class="barra" style="margin:0 0 12px">
-    <button class="btn-sec btn" onclick="limparFiltros()">Limpar filtros</button>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <button class="btn-sec btn" onclick="limparFiltros()">Limpar filtros</button>
+      <label style="display:flex;gap:6px;align-items:center;cursor:pointer;font-weight:600"><input type="checkbox" ${S.palCalc ? 'checked' : ''} onchange="alternarPalCalc(this.checked)"> Calcular paletes pelos volumes</label>
+    </div>
     <div style="display:flex;gap:10px">
       <button class="btn btn-sec" onclick="exportarCSV()">Exportar para Excel</button>
       <button class="btn btn-pri" onclick="abrirForm('novo')">Novo lançamento</button>
     </div>
   </div>
   ${L.length ? `<div class="tab-wrap"><table class="t">
-    <thead><tr><th>Data</th><th>Início</th><th>Fim</th><th class="n">Tempo</th><th>Cliente</th><th>Movimento</th><th>Colaborador</th><th>NF / DI / PED</th><th class="n">SKU</th><th class="n">Vol.</th><th class="n">Unid.</th><th class="n">Pallets</th><th>Diverg.</th><th>Entrega</th></tr></thead>
+    <thead><tr><th>Data</th><th>Início</th><th>Fim</th><th class="n">Tempo</th><th>Cliente</th><th>Movimento</th><th>Colaborador</th><th>NF / DI / PED</th><th class="n">SKU</th><th class="n">Vol.</th><th class="n">Unid.</th><th class="n">Pallets</th>${S.palCalc ? '<th class="n">Plt calc.</th>' : ''}<th>Diverg.</th><th>Entrega</th></tr></thead>
     <tbody>${L.slice(0, LIM).map(r => `<tr onclick="abrirRegistro('${esc(r.id)}','${esc(r.data.slice(0,7))}')">
       <td data-l="Data">${dataBR(r.data)}</td><td data-l="Início">${esc(r.hi.slice(0,5))}</td><td data-l="Fim">${esc(r.hf.slice(0,5))}</td>
       <td class="n" data-l="Tempo">${fmtDur(dur(r.hi, r.hf)).slice(0,5)}</td>
       <td class="cli" data-l="Cliente">${esc(r.cliente)}</td><td data-l="Movimento">${esc(r.mov)}</td><td data-l="Colaborador">${esc(r.colab)}</td><td data-l="NF/DI/PED">${esc(r.nf)}</td>
-      <td class="n" data-l="SKU">${nf(r.sku)}</td><td class="n" data-l="Volumes">${nf(r.vol)}</td><td class="n" data-l="Unidades">${nf(r.un)}</td><td class="n" data-l="Pallets">${nf(r.pal)}</td>
+      <td class="n" data-l="SKU">${nf(r.sku)}</td><td class="n" data-l="Volumes">${nf(r.vol)}</td><td class="n" data-l="Unidades">${nf(r.un)}</td><td class="n" data-l="Pallets">${nf(r.pal)}</td>${S.palCalc ? `<td class="n" data-l="Plt calc.">${fmtPal(palCalc(r))}</td>` : ''}
       <td data-l="Divergência"><span class="tag ${r.div === 'SIM' ? 'bad' : 'ok'}">${r.div === 'SIM' ? 'Sim' : 'Não'}</span></td>
       <td data-l="Entrega">${r.stEnt === ST_EN ? `<span class="tag ok">${dataBR(r.entData).slice(0,5)} ${esc(r.entHora.slice(0,5))}</span>` : r.stEnt === ST_AG ? '<span class="tag ag">Aguardando</span>' : '-'}</td>
     </tr>`).join('')}</tbody></table></div>
     ${L.length > LIM ? `<p class="nota">Mostrando os ${LIM} mais recentes de ${nf(L.length)}. Use os filtros para refinar; a exportação inclui todos.</p>` : ''}`
-  : `<div class="vazio">${faltam ? 'Carregando…' : 'Nenhum lançamento para esses filtros.'}</div>`}`;
+  : `<div class="vazio">${faltam ? 'Carregando…' : 'Nenhum lançamento para esses filtros.'}</div>`}
+  ${S.palCalc ? vSaldoPaletes() : ''}`;
 }
 function limparFiltros(){ S.f = { de:'', ate:'', cliente:'', mov:'', colab:'', ent:'', q:'' }; render(); }
 function exportarCSV(){
   const L = filtrados();
-  const cab = ['DATA','HORA INICIAL','HORA FINAL','TEMPO','CLIENTE','MOVIMENTO','COLABORADOR','NF/ DI/ PED','QTD DE SKU','QTD DE VOLUMES','QTD DE UNIDADES','QTD DE PALLETS','DIVERGENCIA','OBSERVAÇÕES','LANÇADO POR','STATUS ENTREGA','ENTREGUE POR','DATA ENTREGA','HORA ENTREGA','OBS ENTREGA'];
+  const cab = ['DATA','HORA INICIAL','HORA FINAL','TEMPO','CLIENTE','MOVIMENTO','COLABORADOR','NF/ DI/ PED','QTD DE SKU','QTD DE VOLUMES','QTD DE UNIDADES','QTD DE PALLETS','DIVERGENCIA','OBSERVAÇÕES','LANÇADO POR','STATUS ENTREGA','ENTREGUE POR','DATA ENTREGA','HORA ENTREGA','OBS ENTREGA'].concat(S.palCalc ? ['PALETES CALCULADOS'] : []);
   const q = v => { const s = String(v == null ? '' : v); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; };
-  const linhas = L.map(r => [dataBR(r.data), r.hi, r.hf, fmtDur(dur(r.hi, r.hf)), r.cliente, r.mov, r.colab, r.nf, r.sku, r.vol, r.un, r.pal, r.div, r.obs, r.email, r.stEnt, r.entPor, dataBR(r.entData), r.entHora, r.entObs].map(q).join(';'));
+  const linhas = L.map(r => [dataBR(r.data), r.hi, r.hf, fmtDur(dur(r.hi, r.hf)), r.cliente, r.mov, r.colab, r.nf, r.sku, r.vol, r.un, r.pal, r.div, r.obs, r.email, r.stEnt, r.entPor, dataBR(r.entData), r.entHora, r.entObs].concat(S.palCalc ? [palCalc(r) == null ? '' : String(Math.round(palCalc(r) * 100) / 100).replace('.', ',')] : []).map(q).join(';'));
   baixar(new Blob(['\ufeff' + [cab.join(';')].concat(linhas).join('\r\n')], { type:'text/csv;charset=utf-8' }), `movimentacao_estoque_${S.f.de || 'inicio'}_a_${S.f.ate || 'hoje'}.csv`);
 }
 function baixar(blob, nome){
@@ -1367,12 +1436,13 @@ function vPainel(){
 }
 
 /* ══════════ CADASTROS ══════════ */
-const CAD_NOMES = { clientes:'Clientes', colaboradores:'Colaboradores', movimentos:'Movimentos', observacoes:'Observações', ocupacao:'Ocupação', usuarios:'Usuários' };
+const CAD_NOMES = { clientes:'Clientes', colaboradores:'Colaboradores', movimentos:'Movimentos', observacoes:'Observações', ocupacao:'Ocupação', paletes:'Paletes', usuarios:'Usuários' };
 function vCadastros(){
   if(!isAdmin()) return '<div class="vazio">Acesso restrito a administradores.</div>';
   const seg = `<div class="seg">${Object.entries(CAD_NOMES).map(([k, v]) => `<button aria-pressed="${S.cad === k}" onclick="S.cad='${k}';render()">${v}</button>`).join('')}</div>`;
   if(S.cad === 'usuarios') return seg + vUsuarios();
   if(S.cad === 'ocupacao') return seg + vOcupacao();
+  if(S.cad === 'paletes') return seg + vPaletes();
   const lista = cadLista(S.cad).sort((a,b) => (b.ativo - a.ativo) || a.nome.localeCompare(b.nome));
   return seg + `
   <form class="add" ${CAMPO} onsubmit="event.preventDefault();cadAdd(this)">
@@ -1434,6 +1504,31 @@ function salvarOcupacao(){
     ops.push(v === '' ? { t:'del', p:'ocupacao/' + S.ocMes + '/' + k } : { t:'set', p:'ocupacao/' + S.ocMes + '/' + k, v:{ cliente:c, pallets:Number(v) || 0 } });
   });
   if(ops.length){ enqueue(...ops); toast('Ocupação salva.'); }
+}
+
+function vPaletes(){
+  const P = D.cad.paletes || {};
+  const clientes = Array.from(new Set(ativos('clientes').concat(Object.values(P).map(x => x && x.nome).filter(Boolean)))).sort();
+  return `
+  <div class="barra" style="margin:0 0 12px"><span class="nota" style="margin:0">Quantos volumes formam um palete de cada cliente e o saldo de paletes no início da data inicial. A partir dessa data, entrada de mercadoria e devolução ao estoque somam e separação subtrai. Deixe em branco o cliente que não deve ser calculado.</span>
+    <button class="btn btn-pri" onclick="salvarPaletes()">Salvar paletes</button></div>
+  <form id="fPal" class="cad" ${CAMPO} onsubmit="return false">${clientes.map((c, i) => { const x = P[chave(c)] || {}; return `
+    <div class="cad-l" data-cli="${esc(c)}" style="flex-wrap:wrap"><span class="nm">${esc(c)}</span>
+      <label class="f" style="max-width:130px">Vol. por palete<input class="in" type="number" inputmode="decimal" min="0" step="any" name="px-pv-${i}" value="${x.vpp == null ? '' : esc(x.vpp)}"></label>
+      <label class="f" style="max-width:130px">Saldo inicial<input class="in" type="number" inputmode="decimal" min="0" step="any" name="px-ps-${i}" value="${x.saldoIni == null ? '' : esc(x.saldoIni)}"></label>
+      <label class="f" style="max-width:170px">Data inicial<input class="in" type="date" name="px-pd-${i}" value="${esc(x.dataIni || '')}"></label></div>`; }).join('')}
+  </form>`;
+}
+function salvarPaletes(){
+  const ops = [], erros = [];
+  document.querySelectorAll('#fPal [data-cli]').forEach(el => {
+    const c = el.dataset.cli, k = chave(c), [v, s0, d] = [...el.querySelectorAll('input')].map(i => i.value.trim());
+    if(v === '' && s0 === '' && d === ''){ if((D.cad.paletes || {})[k]) ops.push({ t:'del', p:'cad/paletes/' + k }); return; }
+    if(!(+v > 0) || !d) return erros.push(c);
+    ops.push({ t:'set', p:'cad/paletes/' + k, v:{ nome:c, ativo:true, vpp:+v, saldoIni:+s0 || 0, dataIni:d } });
+  });
+  if(erros.length) return toast('Informe volumes por palete (maior que zero) e data inicial para: ' + erros.join(', ') + '.', true);
+  if(ops.length){ enqueue(...ops); toast('Paletes salvos.'); } else toast('Nada para salvar.');
 }
 
 function vUsuarios(){
@@ -1822,7 +1917,7 @@ const TAB = {
         ['disp','DISPOSITIVO','@'],['upd','ALTERADO EM','t']],
   ANDAMENTO: [['id','ID','@'],['data','DATA','d'],['hi','HORA INICIAL','@'],['cliente','CLIENTE','@'],['mov','MOVIMENTO','@'],['colab','COLABORADOR','@'],
               ['nf','NF/ DI/ PED','@'],['usuario','USUÁRIO','@'],['inicio','INÍCIO','t'],['disp','DISPOSITIVO','@']],
-  CADASTROS: [['tipo','TIPO','@'],['key','CHAVE','@'],['nome','NOME','@'],['ativo','ATIVO','b']],
+  CADASTROS: [['tipo','TIPO','@'],['key','CHAVE','@'],['nome','NOME','@'],['ativo','ATIVO','b'],['vpp','VOL POR PALETE','n'],['saldoIni','SALDO INICIAL PALETES','n'],['dataIni','DATA INICIAL PALETES','@']],
   USUARIOS: [['login','USUÁRIO','@'],['nome','NOME','@'],['senha','SENHA','@'],['perfil','PERFIL','@'],['ativo','ATIVO','b']],
   OCUPACAO: [['mes','MÊS','@'],['key','CHAVE','@'],['cliente','CLIENTE','@'],['pallets','PALLETS','n']]
 };
@@ -1852,7 +1947,7 @@ function montarTabelas(all){
   const t = { MOV:[], ANDAMENTO:[], CADASTROS:[], USUARIOS:[], OCUPACAO:[] };
   Object.entries(all.mov || {}).forEach(([m, o]) => Object.entries(o || {}).forEach(([id, r]) => t.MOV.push(normReg(r, id))));
   Object.entries(all.andamento || {}).forEach(([id, a]) => t.ANDAMENTO.push(Object.assign({}, a, { id })));
-  Object.entries(all.cad || {}).forEach(([tipo, o]) => Object.entries(o || {}).forEach(([key, x]) => t.CADASTROS.push({ tipo, key, nome:x.nome, ativo:x.ativo !== false })));
+  Object.entries(all.cad || {}).forEach(([tipo, o]) => Object.entries(o || {}).forEach(([key, x]) => t.CADASTROS.push({ tipo, key, nome:x.nome, ativo:x.ativo !== false, vpp:x.vpp, saldoIni:x.saldoIni, dataIni:x.dataIni })));
   Object.entries(all.usuarios || {}).forEach(([login, u]) => t.USUARIOS.push(Object.assign({}, u, { login })));
   Object.entries(all.ocupacao || {}).forEach(([mes, o]) => Object.entries(o || {}).forEach(([key, x]) => t.OCUPACAO.push({ mes, key, cliente:x.cliente, pallets:x.pallets })));
   const out = {};
@@ -1868,7 +1963,7 @@ function caminhosDe(tipo, o, mapa){
   } else if(tipo === 'ANDAMENTO'){
     if(!o.id) return; const a = Object.assign({}, o); delete a.id; Object.keys(a).forEach(k => { if(a[k] === '') a[k] = null; }); mapa['andamento/' + chave(o.id)] = limpa(a);
   } else if(tipo === 'CADASTROS'){
-    if(!o.tipo || !o.nome) return; mapa['cad/' + o.tipo + '/' + (o.key || chave(o.nome))] = { nome:o.nome, ativo:o.ativo !== false };
+    if(!o.tipo || !o.nome) return; mapa['cad/' + o.tipo + '/' + (o.key || chave(o.nome))] = o.tipo === 'paletes' ? { nome:o.nome, ativo:true, vpp:+o.vpp || 0, saldoIni:+o.saldoIni || 0, dataIni:o.dataIni || null } : { nome:o.nome, ativo:o.ativo !== false };
   } else if(tipo === 'USUARIOS'){
     if(!o.login) return; mapa['usuarios/' + chave(up(o.login))] = { nome:o.nome || o.login, senha:String(o.senha || ''), perfil:o.perfil === 'ADMIN' ? 'ADMIN' : 'OPERADOR', ativo:o.ativo !== false };
   } else if(tipo === 'OCUPACAO'){
